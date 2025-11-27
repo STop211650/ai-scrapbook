@@ -7,12 +7,27 @@ export interface UrlMetadata {
   text: string;
 }
 
+// Convert X/Twitter URLs to Nitter for scraping (avoids JS rendering and login walls)
+function getNitterUrl(url: string): string | null {
+  const parsedUrl = new URL(url);
+  const host = parsedUrl.hostname;
+
+  if (host === 'x.com' || host === 'twitter.com' || host === 'www.x.com' || host === 'www.twitter.com') {
+    // Nitter instances - using nitter.poast.org as it's currently reliable
+    return `https://nitter.poast.org${parsedUrl.pathname}`;
+  }
+  return null;
+}
+
 export async function extractUrlMetadata(url: string): Promise<UrlMetadata> {
   const parsedUrl = new URL(url);
   const domain = parsedUrl.hostname;
 
+  // Use Nitter for X/Twitter URLs
+  const fetchUrl = getNitterUrl(url) || url;
+
   try {
-    const response = await fetch(url, {
+    const response = await fetch(fetchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; AIScrapbook/1.0)',
       },
