@@ -7,24 +7,30 @@ export interface UrlMetadata {
   text: string;
 }
 
-// Convert X/Twitter URLs to Nitter for scraping (avoids JS rendering and login walls)
-function getNitterUrl(url: string): string | null {
+// Convert URLs to scraper-friendly alternatives (avoids JS rendering and login walls)
+function getScrapableUrl(url: string): string {
   const parsedUrl = new URL(url);
   const host = parsedUrl.hostname;
 
+  // X/Twitter -> Nitter
   if (host === 'x.com' || host === 'twitter.com' || host === 'www.x.com' || host === 'www.twitter.com') {
-    // Nitter instances - using nitter.poast.org as it's currently reliable
     return `https://nitter.poast.org${parsedUrl.pathname}`;
   }
-  return null;
+
+  // Reddit -> Old Reddit (static HTML, no JS required)
+  if (host === 'reddit.com' || host === 'www.reddit.com') {
+    return `https://old.reddit.com${parsedUrl.pathname}${parsedUrl.search}`;
+  }
+
+  return url;
 }
 
 export async function extractUrlMetadata(url: string): Promise<UrlMetadata> {
   const parsedUrl = new URL(url);
   const domain = parsedUrl.hostname;
 
-  // Use Nitter for X/Twitter URLs
-  const fetchUrl = getNitterUrl(url) || url;
+  // Use scraper-friendly alternatives for certain sites
+  const fetchUrl = getScrapableUrl(url);
 
   try {
     const response = await fetch(fetchUrl, {
