@@ -3,6 +3,8 @@ import { errorMiddleware } from './middleware/error';
 import authRoutes from './routes/auth';
 import captureRoutes from './routes/capture';
 import searchRoutes from './routes/search';
+import askRoutes from './routes/ask';
+import memoryRoutes from './routes/memory';
 import itemsRoutes from './routes/items';
 import exportRoutes from './routes/export';
 
@@ -20,6 +22,8 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/capture', captureRoutes);
 app.use('/search', searchRoutes);
+app.use('/ask', askRoutes);
+app.use('/memory', memoryRoutes);
 app.use('/items', itemsRoutes);
 app.use('/export', exportRoutes);
 

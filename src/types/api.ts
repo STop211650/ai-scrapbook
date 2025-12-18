@@ -74,6 +74,39 @@ export interface ExportQuery {
   since?: string;
 }
 
+// Ask types (RAG)
+export interface AskRequest {
+  query: string;
+  limit?: number;
+  mode?: 'semantic' | 'keyword' | 'hybrid';
+}
+
+export interface AskSource {
+  id: string;
+  title: string | null;
+  contentType: ContentType;
+  sourceUrl: string | null;
+  citationNumber: number;
+}
+
+export interface AskResponse {
+  answer: string;
+  sources: AskSource[];
+  totalSourcesSearched: number;
+}
+
+// Memory types
+export interface MemoryQuery {
+  limit?: number;
+  offset?: number;
+  since?: string; // ISO date string
+}
+
+export interface MemoryResponse {
+  memories: import('./memory').QueryMemory[];
+  total: number;
+}
+
 // Generic API response wrapper
 export interface ApiResponse<T> {
   success: boolean;
