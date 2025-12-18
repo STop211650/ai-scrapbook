@@ -69,7 +69,15 @@ Respond ONLY with valid JSON, no other text.`;
 
     // Extract JSON from response (Claude might include extra text)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const result = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
+
+    // Parse JSON with error handling to prevent crashes from malformed responses
+    let result: { title?: string; description?: string; tags?: unknown } = {};
+    try {
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
+    } catch (error) {
+      console.error('Failed to parse Anthropic enrichment response:', error);
+      return { title: 'Untitled', description: '', tags: [] };
+    }
 
     return {
       title: result.title || 'Untitled',

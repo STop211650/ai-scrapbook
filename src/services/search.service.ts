@@ -62,11 +62,17 @@ export class SearchService {
 
     // Search for similar items
     const similarItems = await this.embeddingRepo.searchSimilar(queryEmbedding, userId, limit);
+    if (similarItems.length === 0) return [];
 
-    // Fetch full content items for the results
+    // Batch fetch all content items in a single query (avoids N+1 problem)
+    const itemIds = similarItems.map((sim) => sim.id);
+    const items = await this.contentRepo.findByIds(itemIds, userId);
+    const itemsById = new Map(items.map((item) => [item.id, item]));
+
+    // Map results preserving similarity scores and original order
     const results: SearchResult[] = [];
     for (const sim of similarItems) {
-      const item = await this.contentRepo.findById(sim.id, userId);
+      const item = itemsById.get(sim.id);
       if (item) {
         results.push({
           ...this.itemToSearchResult(item),

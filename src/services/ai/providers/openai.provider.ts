@@ -59,7 +59,15 @@ Respond ONLY with valid JSON, no other text.`;
       max_tokens: 500,
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    // Parse JSON with error handling to prevent crashes from malformed responses
+    let result: { title?: string; description?: string; tags?: unknown } = {};
+    try {
+      result = JSON.parse(response.choices[0].message.content || '{}');
+    } catch (error) {
+      console.error('Failed to parse OpenAI enrichment response:', error);
+      return { title: 'Untitled', description: '', tags: [] };
+    }
+
     return {
       title: result.title || 'Untitled',
       description: result.description || '',

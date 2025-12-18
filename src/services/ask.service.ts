@@ -33,21 +33,26 @@ export class AskService {
       };
     }
 
-    // Step 2: Fetch full content for each search result to get rawContent
-    const sourceContexts: SourceContext[] = [];
-    for (const result of searchResults.results) {
-      const fullItem = await this.contentRepo.findById(result.id, userId);
-      if (fullItem) {
-        sourceContexts.push({
+    // Step 2: Batch fetch full content for all search results (avoids N+1 problem)
+    const resultIds = searchResults.results.map((r) => r.id);
+    const fullItems = await this.contentRepo.findByIds(resultIds, userId);
+    const itemsById = new Map(fullItems.map((item) => [item.id, item]));
+
+    // Build source contexts preserving search result order
+    const sourceContexts: SourceContext[] = searchResults.results
+      .map((result) => {
+        const fullItem = itemsById.get(result.id);
+        if (!fullItem) return null;
+        return {
           id: fullItem.id,
           title: fullItem.title,
           contentType: fullItem.contentType,
           sourceUrl: fullItem.sourceUrl,
           // Truncate excerpt to avoid token limits; keep first 1500 chars per source
           excerpt: this.truncateContent(fullItem.rawContent, 1500),
-        });
-      }
-    }
+        };
+      })
+      .filter((ctx): ctx is SourceContext => ctx !== null);
 
     // Step 3: Generate AI answer with citations
     const result = await generateAnswer({
