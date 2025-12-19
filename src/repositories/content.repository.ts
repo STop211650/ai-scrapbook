@@ -45,6 +45,20 @@ export class ContentRepository {
     return rowToContentItem(data as ContentItemRow);
   }
 
+  // Batch fetch multiple items by IDs using IN clause - single query instead of N queries
+  async findByIds(ids: string[], userId: string): Promise<ContentItem[]> {
+    if (ids.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from('content_items')
+      .select('*')
+      .in('id', ids)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return (data as ContentItemRow[]).map(rowToContentItem);
+  }
+
   async findByUserId(
     userId: string,
     options?: { type?: ContentType; limit?: number; offset?: number }
