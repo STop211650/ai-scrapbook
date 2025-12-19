@@ -122,7 +122,7 @@ Instructions:
 Answer:`;
 
     const response = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251015',
+      model: 'claude-3-5-haiku-latest',
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     });

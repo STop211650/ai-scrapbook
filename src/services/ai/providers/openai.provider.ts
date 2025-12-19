@@ -104,7 +104,7 @@ Question: ${query}
 Answer the question using only the information from the sources above. Use [1], [2], etc. to cite sources inline.`;
 
     const response = await this.client.chat.completions.create({
-      model: 'gpt-5-mini',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

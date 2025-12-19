@@ -36,7 +36,7 @@ The AI system uses a provider pattern defined in `src/types/ai.ts`:
 - `src/services/ai/ai.service.ts` exports a singleton factory that creates the appropriate provider based on `AI_PROVIDER` env var
 - Providers: `OpenAIProvider` and `AnthropicProvider` in `src/services/ai/providers/`
 - Anthropic provider uses OpenAI for embeddings (Anthropic doesn't offer embedding API)
-- Answer generation uses `gpt-5-mini` (OpenAI) or `claude-haiku-4-5-20251015` (Anthropic)
+- Answer generation uses `gpt-4o-mini` (OpenAI) or `claude-3-5-haiku-latest` (Anthropic)
 
 ### Content Capture Pipeline
 

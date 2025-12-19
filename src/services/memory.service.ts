@@ -43,7 +43,15 @@ export class MemoryService {
    * Get recent query memory for a user.
    */
   async getMemory(userId: string, options: MemoryQuery): Promise<MemoryResponse> {
-    const since = options.since ? new Date(options.since) : undefined;
+    let since: Date | undefined;
+
+    if (options.since) {
+      const parsedDate = new Date(options.since);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error('Invalid date format for since parameter');
+      }
+      since = parsedDate;
+    }
 
     const result = await this.memoryRepo.getRecent(userId, {
       limit: options.limit,

@@ -70,9 +70,35 @@ describe('Memory Types', () => {
 });
 
 describe('MemoryService', () => {
-  // Mock the SupabaseClient
+  // Mock the Supabase client and repository methods
+  const mockInsert = vi.fn();
+  const mockSelect = vi.fn();
+  const mockEq = vi.fn();
+  const mockGte = vi.fn();
+  const mockOrder = vi.fn();
+  const mockRange = vi.fn();
+  const mockSingle = vi.fn();
+
   const mockSupabase = {
-    from: vi.fn(),
+    from: vi.fn(() => ({
+      insert: mockInsert.mockReturnValue({
+        select: mockSelect.mockReturnValue({
+          single: mockSingle,
+        }),
+      }),
+      select: mockSelect.mockReturnValue({
+        eq: mockEq.mockReturnValue({
+          gte: mockGte.mockReturnValue({
+            order: mockOrder.mockReturnValue({
+              range: mockRange,
+            }),
+          }),
+          order: mockOrder.mockReturnValue({
+            range: mockRange,
+          }),
+        }),
+      }),
+    })),
   };
 
   beforeEach(() => {
@@ -80,8 +106,9 @@ describe('MemoryService', () => {
   });
 
   describe('recordQuery', () => {
-    it('should limit top results to 5 items', async () => {
-      // This tests the business logic in MemoryService
+    it('should limit top results to 5 items when recording', async () => {
+      const { MemoryService } = await import('../src/services/memory.service');
+
       const topResults = [
         { id: '1', title: 'Result 1', contentType: 'url' },
         { id: '2', title: 'Result 2', contentType: 'url' },
@@ -92,10 +119,49 @@ describe('MemoryService', () => {
         { id: '7', title: 'Result 7', contentType: 'url' },
       ];
 
-      // The service should only store first 5
-      const limitedResults = topResults.slice(0, 5);
-      expect(limitedResults).toHaveLength(5);
-      expect(limitedResults[4].id).toBe('5');
+      mockSingle.mockResolvedValue({
+        data: { id: 'test-id' },
+        error: null,
+      });
+
+      const service = new MemoryService(mockSupabase as any);
+
+      await service.recordQuery(
+        'user-123',
+        'test query',
+        'hybrid',
+        'search',
+        topResults,
+        7
+      );
+
+      // Verify insert was called
+      expect(mockInsert).toHaveBeenCalled();
+
+      // Get the data that was passed to insert
+      const insertCall = mockInsert.mock.calls[0][0];
+
+      // Should only include first 5 results
+      expect(insertCall.top_results).toHaveLength(5);
+      expect(insertCall.top_results[0].id).toBe('1');
+      expect(insertCall.top_results[4].id).toBe('5');
+      expect(insertCall.result_count).toBe(7);
+    });
+
+    it('should not throw errors even if database insert fails', async () => {
+      const { MemoryService } = await import('../src/services/memory.service');
+
+      mockSingle.mockResolvedValue({
+        data: null,
+        error: new Error('Database error'),
+      });
+
+      const service = new MemoryService(mockSupabase as any);
+
+      // Should not throw even if insert fails
+      await expect(
+        service.recordQuery('user-123', 'test', 'keyword', 'ask', [], 0)
+      ).resolves.not.toThrow();
     });
   });
 });
