@@ -1,0 +1,12 @@
+# CodeRabbit Configuration
+# https://docs.coderabbit.ai/configuration
+
+reviews:
+  auto_review:
+    enabled: true
+    base_branches:
+      - ".*"  # Review PRs targeting any branch
+  review_status: true
+
+chat:
+  auto_reply: true

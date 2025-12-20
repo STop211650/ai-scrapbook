@@ -1,6 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
-import { AIProvider, EnrichmentResult, EnrichmentOptions } from '../../../types/ai';
+import {
+  AIProvider,
+  EnrichmentResult,
+  EnrichmentOptions,
+  GenerateAnswerOptions,
+  GenerateAnswerResult,
+} from '../../../types/ai';
 
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic';
@@ -63,7 +69,15 @@ Respond ONLY with valid JSON, no other text.`;
 
     // Extract JSON from response (Claude might include extra text)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const result = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
+
+    // Parse JSON with error handling to prevent crashes from malformed responses
+    let result: { title?: string; description?: string; tags?: unknown } = {};
+    try {
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
+    } catch (error) {
+      console.error('Failed to parse Anthropic enrichment response:', error);
+      return { title: 'Untitled', description: '', tags: [] };
+    }
 
     return {
       title: result.title || 'Untitled',
@@ -84,5 +98,59 @@ Respond ONLY with valid JSON, no other text.`;
     });
 
     return response.data[0].embedding;
+  }
+
+  async generateAnswer(options: GenerateAnswerOptions): Promise<GenerateAnswerResult> {
+    const { query, sources, maxTokens = 1500 } = options;
+
+    // Build context string with numbered sources for citation
+    const contextParts = sources.map((source, index) => {
+      const num = index + 1;
+      const urlInfo = source.sourceUrl ? ` (${source.sourceUrl})` : '';
+      return `[${num}] ${source.title || 'Untitled'}${urlInfo}\n${source.excerpt}`;
+    });
+
+    const contextString = contextParts.join('\n\n---\n\n');
+
+    const prompt = `You are a helpful assistant that answers questions based on the user's saved content.
+Use ONLY the provided sources to answer. If the sources don't contain relevant information, say so.
+
+Sources:
+${contextString}
+
+Question: ${query}
+
+Instructions:
+- Answer using only information from the sources above
+- Use inline numbered citations like [1], [2] to reference sources
+- Format your response in markdown
+- Do NOT include a sources list at the end - just use inline citations
+- If sources don't contain relevant info, acknowledge this
+
+Answer:`;
+
+    const response = await this.client.messages.create({
+      model: 'claude-3-5-haiku-latest',
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const textBlock = response.content.find((block) => block.type === 'text');
+    const answer = textBlock?.type === 'text' ? textBlock.text : '';
+
+    // Extract which sources were actually cited by finding [N] patterns
+    const citationPattern = /\[(\d+)\]/g;
+    const citedNumbers = new Set<number>();
+    let match;
+    while ((match = citationPattern.exec(answer)) !== null) {
+      citedNumbers.add(parseInt(match[1], 10));
+    }
+
+    // Map citation numbers back to content IDs
+    const sourcesUsed = Array.from(citedNumbers)
+      .filter((num) => num >= 1 && num <= sources.length)
+      .map((num) => sources[num - 1].id);
+
+    return { answer, sourcesUsed };
   }
 }

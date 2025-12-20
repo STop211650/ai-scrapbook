@@ -1,4 +1,11 @@
-import { AIProvider, AIProviderType, EnrichmentResult, EnrichmentOptions } from '../../types/ai';
+import {
+  AIProvider,
+  AIProviderType,
+  EnrichmentResult,
+  EnrichmentOptions,
+  GenerateAnswerOptions,
+  GenerateAnswerResult,
+} from '../../types/ai';
 import { OpenAIProvider } from './providers/openai.provider';
 import { AnthropicProvider } from './providers/anthropic.provider';
 import { env } from '../../config/env';
@@ -46,4 +53,11 @@ export async function enrichContent(
 export async function generateEmbedding(text: string): Promise<number[]> {
   const provider = getAIProvider();
   return provider.embed(text);
+}
+
+export async function generateAnswer(
+  options: GenerateAnswerOptions
+): Promise<GenerateAnswerResult> {
+  const provider = getAIProvider();
+  return provider.generateAnswer(options);
 }
