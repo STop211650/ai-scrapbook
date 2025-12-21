@@ -14,6 +14,17 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
+  // Twitter/X (bird) - uses auth token + ct0, or Sweetistics API
+  TWITTER_AUTH_TOKEN: z.string().min(1).optional(),
+  TWITTER_CT0: z.string().min(1).optional(),
+  SWEETISTICS_API_KEY: z.string().min(1).optional(),
+
+  // Reddit (snoowrap)
+  REDDIT_CLIENT_ID: z.string().min(1).optional(),
+  REDDIT_CLIENT_SECRET: z.string().min(1).optional(),
+  REDDIT_USERNAME: z.string().min(1).optional(),
+  REDDIT_PASSWORD: z.string().min(1).optional(),
+
   // Server
   PORT: z.string().default('3000').transform(Number),
 });
