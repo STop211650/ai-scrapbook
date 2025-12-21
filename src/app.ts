@@ -7,6 +7,7 @@ import askRoutes from './routes/ask';
 import memoryRoutes from './routes/memory';
 import itemsRoutes from './routes/items';
 import exportRoutes from './routes/export';
+import summarizeRoutes from './routes/summarize';
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/ask', askRoutes);
 app.use('/memory', memoryRoutes);
 app.use('/items', itemsRoutes);
 app.use('/export', exportRoutes);
+app.use('/summarize', summarizeRoutes);
 
 // Error handling
 app.use(errorMiddleware);
