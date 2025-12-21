@@ -90,7 +90,7 @@ export function isRedditUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-    return ['reddit.com', 'old.reddit.com', 'new.reddit.com'].includes(host);
+    return ['reddit.com', 'old.reddit.com', 'new.reddit.com', 'm.reddit.com'].includes(host);
   } catch {
     return false;
   }

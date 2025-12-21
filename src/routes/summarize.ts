@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { SummarizeService, getSummarizeService } from '../services/summarize.service';
+import { getSummarizeService } from '../services/summarize.service';
 import { authMiddleware } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 
