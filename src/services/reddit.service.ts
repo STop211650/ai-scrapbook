@@ -81,7 +81,11 @@ function extractRedditPostId(url: string): { subreddit: string; postId: string }
   return null;
 }
 
-// Check if URL is a Reddit URL
+/**
+ * Check if a URL is a Reddit URL
+ * @param url - The URL to check
+ * @returns True if the URL is from reddit.com
+ */
 export function isRedditUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -92,6 +96,9 @@ export function isRedditUrl(url: string): boolean {
   }
 }
 
+/**
+ * Service for fetching and processing Reddit posts and comments using the Snoowrap API wrapper
+ */
 export class RedditService {
   private client: Snoowrap | null = null;
   private config: RedditServiceConfig;
@@ -119,7 +126,10 @@ export class RedditService {
     }
   }
 
-  // Check if Reddit credentials are configured
+  /**
+   * Check if Reddit credentials are configured
+   * @returns True if all required Reddit API credentials are set
+   */
   isConfigured(): boolean {
     return Boolean(
       this.config.clientId &&
@@ -129,7 +139,11 @@ export class RedditService {
     );
   }
 
-  // Fetch a Reddit post by URL
+  /**
+   * Fetch a Reddit post by URL
+   * @param url - Reddit post URL (e.g., https://reddit.com/r/subreddit/comments/postid)
+   * @returns Post data including title, content, author, and engagement metrics
+   */
   async getPost(url: string): Promise<RedditPostData> {
     if (!this.client) {
       throw new Error('Reddit service not configured. Set REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, and REDDIT_PASSWORD.');
@@ -161,7 +175,12 @@ export class RedditService {
     }
   }
 
-  // Fetch top comments for a post
+  /**
+   * Fetch top comments for a post
+   * @param url - Reddit post URL
+   * @param limit - Maximum number of comments to fetch (default: 10)
+   * @returns Array of comment data including nested replies
+   */
   async getComments(url: string, limit: number = 10): Promise<RedditCommentData[]> {
     if (!this.client) {
       throw new Error('Reddit service not configured.');
@@ -216,7 +235,12 @@ export class RedditService {
     }
   }
 
-  // Get formatted content for summarization (post + top comments)
+  /**
+   * Get formatted content for summarization including post and top comments
+   * @param url - Reddit post URL
+   * @param commentLimit - Maximum number of comments to include (default: 5)
+   * @returns Formatted string with post content, metadata, and top comments
+   */
   async getContentForSummarization(url: string, commentLimit: number = 5): Promise<string> {
     const post = await this.getPost(url);
 

@@ -85,6 +85,9 @@ ${content}
 Summary:`;
 }
 
+/**
+ * Service for summarizing content from various sources (Twitter, Reddit, articles) using AI
+ */
 export class SummarizeService {
   private twitterService: TwitterService;
   private redditService: RedditService;
@@ -94,11 +97,21 @@ export class SummarizeService {
     this.redditService = getRedditService();
   }
 
-  // Main summarization method
+  /**
+   * Summarize content from a URL using AI
+   * @param url - URL to summarize (Twitter, Reddit, or article)
+   * @param options - Summarization options (length, includeMetadata)
+   * @returns Summary with content type, title, source URL, and optional metadata
+   */
   async summarize(url: string, options: SummarizeOptions = {}): Promise<SummarizeResult> {
     const { length = 'medium', includeMetadata = true } = options;
 
     const contentType = detectContentType(url);
+
+    // Throw clear error for invalid URLs
+    if (contentType === 'unknown') {
+      throw new Error('Invalid URL provided. Please ensure the URL is properly formatted.');
+    }
 
     let extractedContent: string;
     let title: string | null = null;
@@ -175,7 +188,10 @@ export class SummarizeService {
     return response;
   }
 
-  // Check which services are configured
+  /**
+   * Check which content sources are configured and available
+   * @returns Object indicating availability of Twitter, Reddit, and article services
+   */
   getServiceStatus(): { twitter: boolean; reddit: boolean; articles: boolean } {
     return {
       twitter: this.twitterService.isConfigured(),

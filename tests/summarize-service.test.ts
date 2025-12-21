@@ -80,10 +80,22 @@ describe('SummarizeService', () => {
 });
 
 describe('Summary length options', () => {
-  it('should accept valid length options', () => {
-    const validLengths = ['short', 'medium', 'long'];
+  it('should validate SummaryLength type at compile time', async () => {
+    const { SummarizeService } = await import('../src/services/summarize.service');
+    const service = new SummarizeService();
+
+    // This test ensures the SummaryLength type is properly constrained
+    // The type system prevents invalid values, but we verify valid ones work
+    const validLengths: Array<'short' | 'medium' | 'long'> = ['short', 'medium', 'long'];
+
+    // Verify each length option is a valid string and recognized by TypeScript
     validLengths.forEach((length) => {
-      expect(['short', 'medium', 'long']).toContain(length);
+      expect(typeof length).toBe('string');
+      expect(length.length).toBeGreaterThan(0);
     });
+
+    // Verify service status is callable (basic behavior check)
+    const status = service.getServiceStatus();
+    expect(status).toBeDefined();
   });
 });

@@ -35,7 +35,11 @@ function extractTweetId(urlOrId: string): string {
   return urlOrId;
 }
 
-// Check if URL is a Twitter/X URL
+/**
+ * Check if a URL is a Twitter/X URL
+ * @param url - The URL to check
+ * @returns True if the URL is from twitter.com or x.com
+ */
 export function isTwitterUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -46,6 +50,9 @@ export function isTwitterUrl(url: string): boolean {
   }
 }
 
+/**
+ * Service for fetching and processing Twitter/X content using the bird CLI tool
+ */
 export class TwitterService {
   private config: TwitterServiceConfig;
 
@@ -58,7 +65,10 @@ export class TwitterService {
     };
   }
 
-  // Check if Twitter credentials are configured
+  /**
+   * Check if Twitter credentials are configured (either direct auth or Sweetistics API key)
+   * @returns True if the service has valid credentials
+   */
   isConfigured(): boolean {
     return Boolean(
       (this.config.authToken && this.config.ct0) ||
@@ -66,7 +76,11 @@ export class TwitterService {
     );
   }
 
-  // Fetch a single tweet by URL or ID
+  /**
+   * Fetch a single tweet by URL or ID
+   * @param urlOrId - Tweet URL (e.g., https://x.com/user/status/123) or tweet ID
+   * @returns Tweet data including text, author, and engagement metrics
+   */
   async getTweet(urlOrId: string): Promise<TweetData> {
     const tweetId = extractTweetId(urlOrId);
 
@@ -98,7 +112,11 @@ export class TwitterService {
     }
   }
 
-  // Fetch thread containing the tweet
+  /**
+   * Fetch the entire thread containing the tweet
+   * @param urlOrId - Tweet URL or ID
+   * @returns Array of tweets in the thread
+   */
   async getThread(urlOrId: string): Promise<TweetData[]> {
     const tweetId = extractTweetId(urlOrId);
 
@@ -129,7 +147,11 @@ export class TwitterService {
     }
   }
 
-  // Get formatted content for summarization
+  /**
+   * Get formatted content for summarization including tweet text and metadata
+   * @param url - Tweet URL
+   * @returns Formatted string with tweet content and engagement metrics
+   */
   async getContentForSummarization(url: string): Promise<string> {
     const tweet = await this.getTweet(url);
 
