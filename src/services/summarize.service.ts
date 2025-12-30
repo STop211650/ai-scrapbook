@@ -1,7 +1,7 @@
-import { getAIProvider } from './ai/ai.service';
-import { extractUrlMetadata } from './url-extractor.service';
-import { TwitterService, getTwitterService, isTwitterUrl } from './twitter.service';
-import { RedditService, getRedditService, isRedditUrl } from './reddit.service';
+import { getAIProvider } from './ai/ai.service.js';
+import { extractUrlMetadata } from './url-extractor.service.js';
+import { TwitterService, getTwitterService, isTwitterUrl } from './twitter.service.js';
+import { RedditService, getRedditService, isRedditUrl } from './reddit.service.js';
 
 export type ContentType = 'twitter' | 'reddit' | 'article' | 'unknown';
 export type SummaryLength = 'short' | 'medium' | 'long';

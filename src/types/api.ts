@@ -1,4 +1,4 @@
-import { ContentType } from './content';
+import { ContentType } from './content.js';
 
 // Auth types
 export interface SignupRequest {
@@ -103,7 +103,7 @@ export interface MemoryQuery {
 }
 
 export interface MemoryResponse {
-  memories: import('./memory').QueryMemory[];
+  memories: import('./memory.js').QueryMemory[];
   total: number;
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isTwitterUrl } from '../src/services/twitter.service';
+import { isTwitterUrl } from '../src/services/twitter.service.js';
 
 describe('TwitterService', () => {
   describe('isTwitterUrl', () => {
@@ -32,7 +32,7 @@ describe('TwitterService', () => {
   describe('TwitterService configuration', () => {
     it('should report unconfigured when no credentials set', async () => {
       // Import dynamically to avoid env pollution
-      const { TwitterService } = await import('../src/services/twitter.service');
+      const { TwitterService } = await import('../src/services/twitter.service.js');
       const service = new TwitterService({
         authToken: undefined,
         ct0: undefined,
@@ -42,7 +42,7 @@ describe('TwitterService', () => {
     });
 
     it('should report configured with auth token and ct0', async () => {
-      const { TwitterService } = await import('../src/services/twitter.service');
+      const { TwitterService } = await import('../src/services/twitter.service.js');
       const service = new TwitterService({
         authToken: 'test-token',
         ct0: 'test-ct0',
@@ -51,7 +51,7 @@ describe('TwitterService', () => {
     });
 
     it('should report configured with sweetistics API key', async () => {
-      const { TwitterService } = await import('../src/services/twitter.service');
+      const { TwitterService } = await import('../src/services/twitter.service.js');
       const service = new TwitterService({
         sweetisticsApiKey: 'test-key',
       });

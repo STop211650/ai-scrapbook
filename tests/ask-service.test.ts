@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AskService } from '../src/services/ask.service';
+import { AskService } from '../src/services/ask.service.js';
 
 // Mock the AI service module
-vi.mock('../src/services/ai/ai.service', () => ({
+vi.mock('../src/services/ai/ai.service.js', () => ({
   generateEmbedding: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
   generateAnswer: vi.fn().mockResolvedValue({
     answer: 'This is the answer based on [1] and [2].',

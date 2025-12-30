@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isRedditUrl } from '../src/services/reddit.service';
+import { isRedditUrl } from '../src/services/reddit.service.js';
 
 describe('RedditService', () => {
   describe('isRedditUrl', () => {
@@ -30,7 +30,7 @@ describe('RedditService', () => {
 
   describe('RedditService configuration', () => {
     it('should report unconfigured when no credentials set', async () => {
-      const { RedditService } = await import('../src/services/reddit.service');
+      const { RedditService } = await import('../src/services/reddit.service.js');
       const service = new RedditService({
         clientId: undefined,
         clientSecret: undefined,
@@ -41,7 +41,7 @@ describe('RedditService', () => {
     });
 
     it('should report unconfigured with partial credentials', async () => {
-      const { RedditService } = await import('../src/services/reddit.service');
+      const { RedditService } = await import('../src/services/reddit.service.js');
       const service = new RedditService({
         clientId: 'test-id',
         clientSecret: undefined,
@@ -52,7 +52,7 @@ describe('RedditService', () => {
     });
 
     it('should report configured with all credentials', async () => {
-      const { RedditService } = await import('../src/services/reddit.service');
+      const { RedditService } = await import('../src/services/reddit.service.js');
       const service = new RedditService({
         clientId: 'test-id',
         clientSecret: 'test-secret',

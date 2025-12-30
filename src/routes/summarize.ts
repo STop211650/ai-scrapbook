@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { getSummarizeService } from '../services/summarize.service';
-import { authMiddleware } from '../middleware/auth';
-import { validate } from '../middleware/validate';
+import { getSummarizeService } from '../services/summarize.service.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
 
 const router = Router();
 

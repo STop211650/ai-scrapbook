@@ -6,7 +6,7 @@ import {
   EnrichmentOptions,
   GenerateAnswerOptions,
   GenerateAnswerResult,
-} from '../../../types/ai';
+} from '../../../types/ai.js';
 
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic';

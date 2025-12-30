@@ -34,6 +34,35 @@ bd update bd-42 --priority 1 --json
 bd close bd-42 --reason "Completed" --json
 ```
 
+### Setup (Recommended)
+
+Use the bd CLI + git hooks for best performance and lowest context overhead.
+Hooks inject `bd prime` on session start so agents get just the right amount of context.
+
+```bash
+# Install bd CLI (Homebrew recommended)
+brew tap steveyegge/beads
+brew install bd
+# Alternative installs:
+# npm i -g @beads/bd
+# curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+# Initialize in this repo (installs git hooks for auto-sync)
+bd init --quiet
+
+# Editor integration (choose one)
+bd setup claude   # Claude Code - installs SessionStart/PreCompact hooks
+bd setup cursor   # Cursor IDE - creates .cursor/rules/beads.mdc
+bd setup aider    # Aider - creates .aider.conf.yml
+
+# Verify setup
+bd setup claude --check
+bd setup cursor --check
+bd setup aider --check
+bd version
+bd help
+```
+
 ### Issue Types
 
 - `bug` - Something broken
@@ -72,12 +101,51 @@ bd automatically syncs with git:
 If using GitHub Copilot, also create `.github/copilot-instructions.md` for automatic instruction loading.
 Run `bd onboard` to get the content, or see step 2 of the onboard instructions.
 
-### MCP Server (Recommended)
+### Claude Code Plugin (Optional)
 
-If using Claude or MCP-compatible clients, install the beads MCP server:
+If you want slash commands like `/bd-ready` and `/bd-create`, install the Claude Code plugin
+from the plugin marketplace and restart Claude Code. The plugin requires the bd CLI.
+If you need explicit commands:
+```bash
+# In Claude Code: add steveyegge/beads in the plugin marketplace
+/plugin install beads
+# restart Claude Code
+```
+The plugin adds slash commands and a task agent.
+
+### MCP Server (Alternative for MCP-only environments)
+
+Only use MCP if your environment has no shell access (e.g., Claude Desktop, some hosted clients).
+The CLI + hooks flow is faster and more context-efficient.
+Trade-offs: MCP adds higher context overhead and extra latency vs direct CLI calls.
+
+If you must use MCP, install the beads MCP server (uv is recommended):
 
 ```bash
-pip install beads-mcp
+uv tool install beads-mcp
+# or: pip install beads-mcp
+```
+
+Claude Desktop config (macOS): add to
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "beads": {
+      "command": "beads-mcp"
+    }
+  }
+}
+```
+
+Sourcegraph Amp config:
+```json
+{
+  "beads": {
+    "command": "beads-mcp",
+    "args": []
+  }
+}
 ```
 
 Add to MCP config (e.g., `~/.config/claude/config.json`):

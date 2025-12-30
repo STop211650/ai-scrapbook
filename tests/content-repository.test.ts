@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ContentRepository } from '../src/repositories/content.repository';
+import { ContentRepository } from '../src/repositories/content.repository.js';
 
 describe('ContentRepository', () => {
   describe('findByIds', () => {

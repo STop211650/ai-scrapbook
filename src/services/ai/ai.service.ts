@@ -5,10 +5,10 @@ import {
   EnrichmentOptions,
   GenerateAnswerOptions,
   GenerateAnswerResult,
-} from '../../types/ai';
-import { OpenAIProvider } from './providers/openai.provider';
-import { AnthropicProvider } from './providers/anthropic.provider';
-import { env } from '../../config/env';
+} from '../../types/ai.js';
+import { OpenAIProvider } from './providers/openai.provider.js';
+import { AnthropicProvider } from './providers/anthropic.provider.js';
+import { env } from '../../config/env.js';
 
 let aiProvider: AIProvider | null = null;
 

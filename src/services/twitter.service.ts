@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 const execFileAsync = promisify(execFile);
 

@@ -6,6 +6,8 @@ See AGENTS.md for workflow details.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+API reference: see `docs/reference/API.md`.
+
 ## Commands
 
 ```bash
@@ -97,6 +99,15 @@ Validated at startup via Zod schema in `src/config/env.ts`.
 ## Issue Tracking
 
 This project uses [Beads](https://github.com/steveyegge/beads) for issue tracking.
+Prefer the bd CLI + hooks; use MCP only when you don't have shell access.
+
+Recommended setup (CLI + hooks):
+
+```bash
+bd init --quiet
+bd setup claude
+bd setup claude --check
+```
 
 ```bash
 bd list              # View all issues

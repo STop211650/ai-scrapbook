@@ -1,7 +1,7 @@
-import { ContentRepository } from '../../repositories/content.repository';
-import { EmbeddingRepository } from '../../repositories/embedding.repository';
-import { enrichContent, generateEmbedding } from './ai.service';
-import { ContentItem } from '../../types/content';
+import { ContentRepository } from '../../repositories/content.repository.js';
+import { EmbeddingRepository } from '../../repositories/embedding.repository.js';
+import { enrichContent, generateEmbedding } from './ai.service.js';
+import { ContentItem } from '../../types/content.js';
 
 export class EnrichmentService {
   constructor(

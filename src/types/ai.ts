@@ -1,4 +1,4 @@
-import { ContentType } from './content';
+import { ContentType } from './content.js';
 
 export interface EnrichmentResult {
   title: string;

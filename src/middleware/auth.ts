@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabase } from '../lib/supabase';
-import { UnauthorizedError } from '../lib/errors';
+import { supabase } from '../lib/supabase.js';
+import { UnauthorizedError } from '../lib/errors.js';
 
 // Extend Express Request to include userId
 declare global {

@@ -6,7 +6,7 @@ import {
   UpdateContentInput,
   rowToContentItem,
   ContentType,
-} from '../types/content';
+} from '../types/content.js';
 
 export class ContentRepository {
   constructor(private supabase: SupabaseClient) {}
