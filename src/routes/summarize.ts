@@ -8,7 +8,7 @@ const router = Router();
 
 const summarizeSchema = z.object({
   url: z.string().url('Invalid URL format'),
-  length: z.enum(['short', 'medium', 'long']).optional(),
+  length: z.enum(['short', 'medium', 'long', 'xl', 'xxl']).optional(),
   includeMetadata: z.boolean().optional(),
 });
 

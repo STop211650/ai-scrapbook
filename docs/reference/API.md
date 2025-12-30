@@ -117,8 +117,11 @@ Authorization: Bearer <access_token>
 - Auth: required
 - Body:
   - `url: string`
-  - `length?: "short" | "medium" | "long"`
+  - `length?: "short" | "medium" | "long" | "xl" | "xxl"`
   - `includeMetadata?: boolean`
+- Notes:
+  - Supports articles, social URLs, and media links (YouTube/podcasts/direct media).
+  - Summaries use summarize-core extraction + prompt guidance.
 - Response: `{ summary, contentType, title, sourceUrl, extractedContent, metadata? }`
 
 `GET /summarize/status`

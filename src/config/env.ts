@@ -27,6 +27,13 @@ const envSchema = z.object({
 
   // Server
   PORT: z.string().default('3000').transform(Number),
+
+  // Summarize-core optional services
+  FIRECRAWL_API_KEY: z.string().min(1).optional(),
+  APIFY_API_TOKEN: z.string().min(1).optional(),
+  YT_DLP_PATH: z.string().min(1).optional(),
+  FAL_KEY: z.string().min(1).optional(),
+  SUMMARIZE_MODEL: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

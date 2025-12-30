@@ -81,7 +81,7 @@ export class TwitterService {
    * @param urlOrId - Tweet URL (e.g., https://x.com/user/status/123) or tweet ID
    * @returns Tweet data including text, author, and engagement metrics
    */
-  async getTweet(urlOrId: string): Promise<TweetData> {
+  async getTweet(urlOrId: string, options?: { timeoutMs?: number }): Promise<TweetData> {
     const tweetId = extractTweetId(urlOrId);
 
     const args = ['read', tweetId, '--json'];
@@ -101,7 +101,7 @@ export class TwitterService {
     try {
       const { stdout } = await execFileAsync('bird', args, {
         env: envVars,
-        timeout: this.config.timeoutMs,
+        timeout: options?.timeoutMs ?? this.config.timeoutMs,
       });
 
       const tweet = JSON.parse(stdout.trim()) as TweetData;
