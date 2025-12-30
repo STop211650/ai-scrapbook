@@ -8,6 +8,19 @@ This API targets Railway with Node 22 and summarize-core enabled.
 - Start command: `npm start`.
 - Auth: Supabase JWT via `Authorization: Bearer <token>`.
 
+## Railway project setup (GitHub deploy + PR environments)
+
+This is the most sustainable setup for Railway deployments.
+
+1) Connect the GitHub repo to the Railway service.
+2) Enable auto-deploys from `main`.
+3) Enable PR preview environments.
+
+Notes:
+- These toggles live in the Railway dashboard (service settings → deployments).
+- PR environments should inherit production variables except secrets you want to mask.
+- Keep `npm run build` and `npm start` as the build/start commands.
+
 ## summarize-core runtime requirements
 
 summarize-core can extract from URLs, YouTube/podcasts, and direct media links.
