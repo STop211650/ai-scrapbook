@@ -1,9 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { createAuthenticatedClient } from '../lib/supabase';
-import { ContentService } from '../services/content.service';
-import { authMiddleware } from '../middleware/auth';
-import { validate } from '../middleware/validate';
+import { createAuthenticatedClient } from '../lib/supabase.js';
+import { ContentService } from '../services/content.service.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
 
 const router = Router();
 

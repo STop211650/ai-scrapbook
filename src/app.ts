@@ -1,13 +1,13 @@
 import express from 'express';
-import { errorMiddleware } from './middleware/error';
-import authRoutes from './routes/auth';
-import captureRoutes from './routes/capture';
-import searchRoutes from './routes/search';
-import askRoutes from './routes/ask';
-import memoryRoutes from './routes/memory';
-import itemsRoutes from './routes/items';
-import exportRoutes from './routes/export';
-import summarizeRoutes from './routes/summarize';
+import { errorMiddleware } from './middleware/error.js';
+import authRoutes from './routes/auth.js';
+import captureRoutes from './routes/capture.js';
+import searchRoutes from './routes/search.js';
+import askRoutes from './routes/ask.js';
+import memoryRoutes from './routes/memory.js';
+import itemsRoutes from './routes/items.js';
+import exportRoutes from './routes/export.js';
+import summarizeRoutes from './routes/summarize.js';
 
 const app = express();
 

@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { MemoryRepository } from '../repositories/memory.repository';
-import { MemoryQuery, MemoryResponse } from '../types/api';
-import { SearchMode, MemoryEndpoint, TopResult } from '../types/memory';
+import { MemoryRepository } from '../repositories/memory.repository.js';
+import { MemoryQuery, MemoryResponse } from '../types/api.js';
+import { SearchMode, MemoryEndpoint, TopResult } from '../types/memory.js';
 
 export class MemoryService {
   private memoryRepo: MemoryRepository;

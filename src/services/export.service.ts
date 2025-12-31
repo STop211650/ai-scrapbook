@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ContentRepository } from '../repositories/content.repository';
-import { ContentItem } from '../types/content';
+import { ContentRepository } from '../repositories/content.repository.js';
+import { ContentItem } from '../types/content.js';
 
 export class ExportService {
   private contentRepo: ContentRepository;

@@ -33,8 +33,8 @@ vi.mock('@anthropic-ai/sdk', () => {
 });
 
 // Import after mocking so providers use mocked SDKs
-import { OpenAIProvider } from '../src/services/ai/providers/openai.provider';
-import { AnthropicProvider } from '../src/services/ai/providers/anthropic.provider';
+import { OpenAIProvider } from '../src/services/ai/providers/openai.provider.js';
+import { AnthropicProvider } from '../src/services/ai/providers/anthropic.provider.js';
 
 describe('AI Providers JSON Parsing Error Handling', () => {
   describe('OpenAIProvider', () => {

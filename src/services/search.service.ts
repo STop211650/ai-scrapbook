@@ -1,9 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ContentRepository } from '../repositories/content.repository';
-import { EmbeddingRepository } from '../repositories/embedding.repository';
-import { generateEmbedding } from './ai/ai.service';
-import { ContentItem } from '../types/content';
-import { SearchRequest, SearchResult, SearchResponse } from '../types/api';
+import { ContentRepository } from '../repositories/content.repository.js';
+import { EmbeddingRepository } from '../repositories/embedding.repository.js';
+import { generateEmbedding } from './ai/ai.service.js';
+import { ContentItem } from '../types/content.js';
+import { SearchRequest, SearchResult, SearchResponse } from '../types/api.js';
 
 export class SearchService {
   private contentRepo: ContentRepository;

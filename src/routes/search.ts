@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { createAuthenticatedClient } from '../lib/supabase';
-import { SearchService } from '../services/search.service';
-import { MemoryService } from '../services/memory.service';
-import { authMiddleware } from '../middleware/auth';
-import { validate } from '../middleware/validate';
-import { SearchMode, TopResult } from '../types/memory';
+import { createAuthenticatedClient } from '../lib/supabase.js';
+import { SearchService } from '../services/search.service.js';
+import { MemoryService } from '../services/memory.service.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { SearchMode, TopResult } from '../types/memory.js';
 
 const router = Router();
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { rowToQueryMemory, QueryMemoryRow } from '../src/types/memory';
+import { rowToQueryMemory, QueryMemoryRow } from '../src/types/memory.js';
 
 describe('Memory Types', () => {
   describe('rowToQueryMemory', () => {
@@ -72,6 +72,7 @@ describe('Memory Types', () => {
 describe('MemoryService', () => {
   // Mock the Supabase client and repository methods
   const mockInsert = vi.fn();
+  const mockInsertSelect = vi.fn();
   const mockSelect = vi.fn();
   const mockEq = vi.fn();
   const mockGte = vi.fn();
@@ -82,7 +83,7 @@ describe('MemoryService', () => {
   const mockSupabase = {
     from: vi.fn(() => ({
       insert: mockInsert.mockReturnValue({
-        select: mockSelect.mockReturnValue({
+        select: mockInsertSelect.mockReturnValue({
           single: mockSingle,
         }),
       }),
@@ -107,7 +108,7 @@ describe('MemoryService', () => {
 
   describe('recordQuery', () => {
     it('should limit top results to 5 items when recording', async () => {
-      const { MemoryService } = await import('../src/services/memory.service');
+      const { MemoryService } = await import('../src/services/memory.service.js');
 
       const topResults = [
         { id: '1', title: 'Result 1', contentType: 'url' },
@@ -120,7 +121,16 @@ describe('MemoryService', () => {
       ];
 
       mockSingle.mockResolvedValue({
-        data: { id: 'test-id' },
+        data: {
+          id: 'test-id',
+          user_id: 'user-123',
+          query: 'test query',
+          search_mode: 'hybrid',
+          endpoint: 'search',
+          top_results: [],
+          result_count: 7,
+          created_at: '2025-12-20T00:00:00.000Z',
+        },
         error: null,
       });
 
@@ -149,7 +159,7 @@ describe('MemoryService', () => {
     });
 
     it('should not throw errors even if database insert fails', async () => {
-      const { MemoryService } = await import('../src/services/memory.service');
+      const { MemoryService } = await import('../src/services/memory.service.js');
 
       mockSingle.mockResolvedValue({
         data: null,
@@ -157,11 +167,15 @@ describe('MemoryService', () => {
       });
 
       const service = new MemoryService(mockSupabase as any);
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Should not throw even if insert fails
       await expect(
         service.recordQuery('user-123', 'test', 'keyword', 'ask', [], 0)
       ).resolves.not.toThrow();
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
     });
   });
 });

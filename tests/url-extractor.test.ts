@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectContentType } from '../src/services/url-extractor.service';
+import { detectContentType } from '../src/services/url-extractor.service.js';
 
 describe('URL Extractor Service', () => {
   describe('detectContentType', () => {

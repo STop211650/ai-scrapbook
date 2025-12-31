@@ -4,7 +4,7 @@ import {
   QueryMemoryRow,
   RecordMemoryInput,
   rowToQueryMemory,
-} from '../types/memory';
+} from '../types/memory.js';
 
 export class MemoryRepository {
   constructor(private supabase: SupabaseClient) {}

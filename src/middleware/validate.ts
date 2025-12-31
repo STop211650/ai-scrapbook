@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import { ValidationError } from '../lib/errors';
+import { ValidationError } from '../lib/errors.js';
 
 type RequestLocation = 'body' | 'query' | 'params';
 

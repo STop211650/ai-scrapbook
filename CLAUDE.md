@@ -6,6 +6,9 @@ See AGENTS.md for workflow details.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+API reference: see `docs/reference/API.md`.
+Deployment notes: see `docs/reference/DEPLOYMENT.md`.
+
 ## Commands
 
 ```bash
@@ -45,6 +48,13 @@ When content is captured via `/capture`:
 2. For URLs, `url-extractor.service.ts` fetches and parses HTML using Cheerio
 3. Content is saved to `content_items` table
 4. `EnrichmentService.enrichAsync()` runs in background to generate title/description/tags via AI and create embeddings
+
+### Summarization
+
+`/summarize` uses summarize-core for link extraction (URLs, YouTube/podcasts, direct media) and prompt generation.
+- Twitter/Reddit use bird/snoowrap when configured; otherwise fall back to summarize-core extraction.
+- Summaries are generated via the existing AI provider.
+- Extracted/transcript content is not persisted by default (only summaries when capture flow stores them).
 
 ### Search Modes
 
@@ -92,11 +102,27 @@ Required in `.env`:
 - `AI_PROVIDER` (openai or anthropic)
 - `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY`
 
+Optional summarization keys:
+- `FIRECRAWL_API_KEY` (HTML extraction fallback)
+- `APIFY_API_TOKEN` (YouTube transcript fallback)
+- `YT_DLP_PATH` (local yt-dlp path for media transcripts)
+- `FAL_KEY` (Whisper fallback for media transcription)
+- `SUMMARIZE_MODEL` (override summarize-core model selection)
+
 Validated at startup via Zod schema in `src/config/env.ts`.
 
 ## Issue Tracking
 
 This project uses [Beads](https://github.com/steveyegge/beads) for issue tracking.
+Prefer the bd CLI + hooks; use MCP only when you don't have shell access.
+
+Recommended setup (CLI + hooks):
+
+```bash
+bd init --quiet
+bd setup claude
+bd setup claude --check
+```
 
 ```bash
 bd list              # View all issues

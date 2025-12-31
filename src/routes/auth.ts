@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { supabase } from '../lib/supabase';
-import { validate } from '../middleware/validate';
-import { ValidationError, UnauthorizedError } from '../lib/errors';
+import { supabase } from '../lib/supabase.js';
+import { validate } from '../middleware/validate.js';
+import { ValidationError, UnauthorizedError } from '../lib/errors.js';
 
 const router = Router();
 

@@ -1,10 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ContentRepository } from '../repositories/content.repository';
-import { EmbeddingRepository } from '../repositories/embedding.repository';
-import { EnrichmentService } from './ai/enrichment.service';
-import { detectContentType, extractUrlMetadata } from './url-extractor.service';
-import { ContentItem, ContentType } from '../types/content';
-import { CaptureRequest, CaptureResponse } from '../types/api';
+import { ContentRepository } from '../repositories/content.repository.js';
+import { EmbeddingRepository } from '../repositories/embedding.repository.js';
+import { EnrichmentService } from './ai/enrichment.service.js';
+import { detectContentType, extractUrlMetadata } from './url-extractor.service.js';
+import { ContentItem, ContentType } from '../types/content.js';
+import { CaptureRequest, CaptureResponse } from '../types/api.js';
 
 export class ContentService {
   private contentRepo: ContentRepository;

@@ -1,9 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ContentRepository } from '../repositories/content.repository';
-import { SearchService } from './search.service';
-import { generateAnswer } from './ai/ai.service';
-import { AskRequest, AskResponse, AskSource } from '../types/api';
-import { SourceContext } from '../types/ai';
+import { ContentRepository } from '../repositories/content.repository.js';
+import { SearchService } from './search.service.js';
+import { generateAnswer } from './ai/ai.service.js';
+import { AskRequest, AskResponse, AskSource } from '../types/api.js';
+import { SourceContext } from '../types/ai.js';
 
 export class AskService {
   private contentRepo: ContentRepository;

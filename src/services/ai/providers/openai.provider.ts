@@ -5,7 +5,7 @@ import {
   EnrichmentOptions,
   GenerateAnswerOptions,
   GenerateAnswerResult,
-} from '../../../types/ai';
+} from '../../../types/ai.js';
 
 export class OpenAIProvider implements AIProvider {
   readonly name = 'openai';

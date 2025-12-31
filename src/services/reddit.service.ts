@@ -1,5 +1,5 @@
 import Snoowrap from 'snoowrap';
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 // Type definitions for snoowrap entities (simplified to avoid TS1062 errors)
 interface RedditSubmission {
