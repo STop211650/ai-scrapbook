@@ -128,3 +128,26 @@ Authorization: Bearer <access_token>
 
 - Auth: required
 - Response: `{ services: { twitter, reddit, articles }, message }`
+
+### Summarization API Keys
+
+Required (choose your AI provider):
+- `AI_PROVIDER=openai` + `OPENAI_API_KEY`
+- `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY`
+
+Twitter/X (pick one method):
+- `SWEETISTICS_API_KEY` (recommended)
+- OR `TWITTER_AUTH_TOKEN` + `TWITTER_CT0` (browser cookies)
+
+Reddit:
+- `REDDIT_CLIENT_ID`
+- `REDDIT_CLIENT_SECRET`
+- `REDDIT_USERNAME`
+- `REDDIT_PASSWORD`
+
+Optional summarize-core services:
+- `FIRECRAWL_API_KEY`
+- `APIFY_API_TOKEN`
+- `YT_DLP_PATH`
+- `FAL_KEY`
+- `SUMMARIZE_MODEL`

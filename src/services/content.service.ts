@@ -1,10 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ContentRepository } from '../repositories/content.repository.js';
 import { EmbeddingRepository } from '../repositories/embedding.repository.js';
+import { getAIProvider } from './ai/ai.service.js';
 import { EnrichmentService } from './ai/enrichment.service.js';
 import { detectContentType, extractUrlMetadata } from './url-extractor.service.js';
 import { ContentItem, ContentType } from '../types/content.js';
 import { CaptureRequest, CaptureResponse } from '../types/api.js';
+import { getSummarizeService } from './summarize.service.js';
 
 export class ContentService {
   private contentRepo: ContentRepository;
@@ -48,6 +50,33 @@ export class ContentService {
     this.enrichmentService.enrichAsync(item).catch((err) => {
       console.error('Background enrichment failed:', err);
     });
+
+    // Fire-and-forget: summarize URLs asynchronously
+    if (contentType === 'url' && sourceUrl) {
+      const summarizeService = getSummarizeService();
+      summarizeService
+        .summarize(sourceUrl, { includeMetadata: false })
+        .then((result) => this.contentRepo.update(item.id, userId, { summary: result.summary }))
+        .catch(async (err) => {
+          console.error('Background summarization failed:', err);
+
+          if (!rawContent.trim()) return;
+
+          try {
+            const aiProvider = getAIProvider();
+            const fallbackPrompt = `Summarize the following content:\n\n${rawContent.substring(0, 4000)}`;
+            const fallback = await aiProvider.generateAnswer({
+              query: fallbackPrompt,
+              sources: [],
+              maxTokens: 800,
+            });
+
+            await this.contentRepo.update(item.id, userId, { summary: fallback.answer });
+          } catch (fallbackError) {
+            console.error('Fallback summarization failed:', fallbackError);
+          }
+        });
+    }
 
     return {
       id: item.id,
