@@ -1,6 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../lib/errors.js';
 
+/**
+ * Express error-handling middleware that sends a consistent JSON error response.
+ *
+ * If `err` is an instance of `AppError`, the middleware responds with the error's
+ * `statusCode` and an object containing `code` (or `'ERROR'`) and `message`.
+ * If `err` has a string `code` property (commonly a Supabase error), the middleware
+ * responds with HTTP 400 and the error's `code` and `message`.
+ * Otherwise it responds with HTTP 500 and `{ code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' }`.
+ *
+ * @param err - The error to handle; may be an `AppError`, or an object containing `code` and `message`
+ */
 export function errorMiddleware(
   err: Error,
   req: Request,
