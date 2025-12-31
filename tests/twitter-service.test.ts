@@ -34,9 +34,9 @@ describe('TwitterService', () => {
       // Import dynamically to avoid env pollution
       const { TwitterService } = await import('../src/services/twitter.service.js');
       const service = new TwitterService({
-        authToken: undefined,
-        ct0: undefined,
-        sweetisticsApiKey: undefined,
+        authToken: '',
+        ct0: '',
+        sweetisticsApiKey: '',
       });
       expect(service.isConfigured()).toBe(false);
     });

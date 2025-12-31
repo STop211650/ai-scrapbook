@@ -48,6 +48,8 @@ When content is captured via `/capture`:
 2. For URLs, `url-extractor.service.ts` fetches and parses HTML using Cheerio
 3. Content is saved to `content_items` table
 4. `EnrichmentService.enrichAsync()` runs in background to generate title/description/tags via AI and create embeddings
+5. For URLs, `SummarizeService.summarize()` runs in background and stores `summary` on the content item
+   - If summarization fails (e.g., Twitter/Reddit credentials missing), fallback summarizes the Cheerio-extracted `rawContent`
 
 ### Summarization
 

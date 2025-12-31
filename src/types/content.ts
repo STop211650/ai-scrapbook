@@ -11,6 +11,7 @@ export interface ContentItem {
   imagePath: string | null;
   title: string | null;
   description: string | null;
+  summary: string | null;
   tags: string[];
   enrichmentStatus: EnrichmentStatus;
   createdAt: Date;
@@ -28,6 +29,7 @@ export interface ContentItemRow {
   image_path: string | null;
   title: string | null;
   description: string | null;
+  summary: string | null;
   tags: string[];
   enrichment_status: EnrichmentStatus;
   created_at: string;
@@ -47,6 +49,7 @@ export interface CreateContentInput {
 export interface UpdateContentInput {
   title?: string;
   description?: string;
+  summary?: string;
   tags?: string[];
   enrichmentStatus?: EnrichmentStatus;
 }
@@ -63,6 +66,7 @@ export function rowToContentItem(row: ContentItemRow): ContentItem {
     imagePath: row.image_path,
     title: row.title,
     description: row.description,
+    summary: row.summary,
     tags: row.tags || [],
     enrichmentStatus: row.enrichment_status,
     createdAt: new Date(row.created_at),

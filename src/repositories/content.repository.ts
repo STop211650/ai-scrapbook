@@ -88,6 +88,7 @@ export class ContentRepository {
     const updateData: Record<string, unknown> = {};
     if (input.title !== undefined) updateData.title = input.title;
     if (input.description !== undefined) updateData.description = input.description;
+    if (input.summary !== undefined) updateData.summary = input.summary;
     if (input.tags !== undefined) updateData.tags = input.tags;
     if (input.enrichmentStatus !== undefined) updateData.enrichment_status = input.enrichmentStatus;
 
