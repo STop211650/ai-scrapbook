@@ -29,7 +29,14 @@ export interface SummarizeResult {
   };
 }
 
-// Detect content type from URL
+/**
+ * Determine the content type represented by a URL.
+ *
+ * Detects known social platforms and classifies other valid URLs as articles; invalid strings are classified as `unknown`.
+ *
+ * @param url - The URL string to classify
+ * @returns `'twitter'`, `'reddit'`, `'article'`, or `'unknown'` depending on the URL
+ */
 function detectContentType(url: string): ContentType {
   if (isTwitterUrl(url)) {
     return 'twitter';
@@ -46,6 +53,12 @@ function detectContentType(url: string): ContentType {
   }
 }
 
+/**
+ * Extracts the hostname from a URL string.
+ *
+ * @param url - The input string to parse as a URL
+ * @returns The hostname portion of `url` (e.g., `example.com`), or `null` if `url` is not a valid URL
+ */
 function getDomain(url: string): string | null {
   try {
     return new URL(url).hostname;

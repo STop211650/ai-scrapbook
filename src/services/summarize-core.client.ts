@@ -10,6 +10,13 @@ import { getTwitterService } from './twitter.service.js';
 
 let summarizeCoreClient: LinkPreviewClient | null = null;
 
+/**
+ * Creates a ReadTweetWithBird-compatible function that fetches a tweet by URL using the configured Twitter service.
+ *
+ * The produced function returns a simplified tweet object with `id`, `text`, `author`, and `createdAt`, or `null` when the Twitter service is not configured.
+ *
+ * @returns A function that accepts `{ url, timeoutMs? }` and returns the tweet object `{ id, text, author, createdAt }` if available, `null` otherwise.
+ */
 function buildReadTweetWithBird(): ReadTweetWithBird {
   return async ({ url, timeoutMs }) => {
     const twitterService = getTwitterService();
@@ -26,6 +33,11 @@ function buildReadTweetWithBird(): ReadTweetWithBird {
   };
 }
 
+/**
+ * Get the singleton LinkPreviewClient, initializing it on first use.
+ *
+ * @returns The initialized LinkPreviewClient instance
+ */
 export function getSummarizeCoreClient(): LinkPreviewClient {
   if (!summarizeCoreClient) {
     summarizeCoreClient = createLinkPreviewClient({
@@ -42,6 +54,13 @@ export function getSummarizeCoreClient(): LinkPreviewClient {
   return summarizeCoreClient;
 }
 
+/**
+ * Fetches and extracts preview content for a given URL using the summarize core client.
+ *
+ * @param url - The target URL to fetch and extract content from
+ * @param options - Optional settings that control how the content is fetched and extracted
+ * @returns The extracted link content as an `ExtractedLinkContent` object
+ */
 export async function fetchSummarizeCoreContent(
   url: string,
   options?: FetchLinkContentOptions
