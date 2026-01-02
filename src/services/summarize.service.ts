@@ -9,6 +9,7 @@ import {
   classifyUrlAsAsset,
   loadAssetFromPath,
   loadAssetFromUrl,
+  MAX_UPLOAD_BYTES,
   type AssetInput,
 } from './asset.service.js';
 import { extractDocumentText } from './document-parser.service.js';
@@ -159,6 +160,10 @@ const resolveModelForKind = (kind: 'url' | 'image' | 'document'): string | undef
   if (kind === 'document') return env.AI_MODEL_DOCUMENT ?? env.AI_MODEL_DEFAULT;
   return env.AI_MODEL_URL ?? env.AI_MODEL_DEFAULT;
 };
+
+// Adapted from summarize/src/run/attachments.ts supportsNativeFileAttachment (PDF only).
+const supportsPdfAttachment = (providerName: string): boolean =>
+  providerName === 'openai' || providerName === 'anthropic';
 
 /**
  * Determine the content type represented by a URL.
@@ -443,11 +448,25 @@ export class SummarizeService {
       truncated: extracted.truncated,
       summaryLength: length,
     });
+    const attachments =
+      asset.mediaType === 'application/pdf' &&
+      asset.sizeBytes <= MAX_UPLOAD_BYTES &&
+      supportsPdfAttachment(aiProvider.name)
+        ? [
+            {
+              kind: 'document' as const,
+              mediaType: asset.mediaType,
+              data: Buffer.from(asset.bytes).toString('base64'),
+              filename: asset.filename,
+            },
+          ]
+        : undefined;
     const result = await aiProvider.generateAnswer({
       query: prompt,
       sources: [],
       maxTokens,
       model: options.model ?? resolveModelForKind('document'),
+      attachments,
     });
 
     return {

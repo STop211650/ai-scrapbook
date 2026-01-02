@@ -16,6 +16,7 @@ vi.mock('../src/services/asset.service.js', () => ({
   loadAssetFromPath: (...args: unknown[]) => mockLoadAssetFromPath(...args),
   loadAssetFromUrl: (...args: unknown[]) => mockLoadAssetFromUrl(...args),
   classifyUrlAsAsset: (...args: unknown[]) => mockClassifyUrlAsAsset(...args),
+  MAX_UPLOAD_BYTES: 25 * 1024 * 1024,
 }));
 
 vi.mock('../src/services/document-parser.service.js', () => ({

@@ -119,10 +119,26 @@ const isLikelyAssetPathname = (pathname: string): boolean => {
   return true;
 };
 
+// Adapted from summarize/src/run/attachments.ts to inline text-like assets instead of attachments.
+export const isTextLikeMediaType = (mediaType: string): boolean => {
+  const mt = mediaType.toLowerCase();
+  if (mt.startsWith('text/')) return true;
+  return (
+    mt === 'application/json' ||
+    mt === 'application/xml' ||
+    mt === 'application/x-yaml' ||
+    mt === 'application/yaml' ||
+    mt === 'application/toml' ||
+    mt === 'application/rtf' ||
+    mt === 'application/javascript'
+  );
+};
+
 export const classifyAssetKind = (mediaType: string): AssetKind | null => {
   if (mediaType.startsWith('image/')) {
     return SUPPORTED_IMAGE_TYPES.has(mediaType) ? 'image' : null;
   }
+  if (isTextLikeMediaType(mediaType) && !isHtmlMediaType(mediaType)) return 'document';
   if (SUPPORTED_DOCUMENT_TYPES.has(mediaType)) return 'document';
   return null;
 };

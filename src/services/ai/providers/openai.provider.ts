@@ -1,4 +1,4 @@
-import { generateText, embed, type ImagePart, type TextPart } from 'ai';
+import { generateText, embed, type FilePart, type ImagePart, type TextPart } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import {
   AIProvider,
@@ -121,7 +121,9 @@ Question: ${query}
 Answer the question using only the information from the sources above. Use [1], [2], etc. to cite sources inline.`
         : query;
 
-    const contentParts: Array<TextPart | ImagePart> = [{ type: 'text', text: userPrompt }];
+    const contentParts: Array<TextPart | ImagePart | FilePart> = [
+      { type: 'text', text: userPrompt },
+    ];
 
     if (attachments?.length) {
       for (const attachment of attachments) {
@@ -171,12 +173,21 @@ Answer the question using only the information from the sources above. Use [1], 
   }
 }
 
-function toOpenAiContentPart(attachment: Attachment): ImagePart {
+function toOpenAiContentPart(attachment: Attachment): ImagePart | FilePart {
   if (attachment.kind === 'image') {
     return {
       type: 'image',
       image: attachment.data,
       mediaType: attachment.mediaType,
+    };
+  }
+
+  if (attachment.kind === 'document') {
+    return {
+      type: 'file',
+      data: attachment.data,
+      mediaType: attachment.mediaType,
+      filename: attachment.filename ?? undefined,
     };
   }
 

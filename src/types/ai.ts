@@ -39,6 +39,12 @@ export type Attachment =
       mediaType: string;
       data: string;
       filename?: string | null;
+    }
+  | {
+      kind: 'document';
+      mediaType: string;
+      data: string;
+      filename?: string | null;
     };
 
 export interface AIProvider {
