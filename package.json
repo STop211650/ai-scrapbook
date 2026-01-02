@@ -27,7 +27,7 @@
     "@vitest/coverage-v8": "^4.0.15",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.15"
+    "vitest": "^4.0.16"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.17",
