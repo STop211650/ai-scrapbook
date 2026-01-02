@@ -87,6 +87,50 @@ export class ContentService {
     };
   }
 
+  async captureFile(
+    userId: string,
+    input: {
+      filePath: string;
+      originalName?: string | null;
+      mimeType?: string | null;
+      tags?: string[];
+      model?: string;
+    }
+  ): Promise<CaptureResponse> {
+    const summarizeService = getSummarizeService();
+    const result = await summarizeService.summarizeFile(
+      {
+        filePath: input.filePath,
+        originalName: input.originalName ?? null,
+        mimeType: input.mimeType ?? null,
+      },
+      { model: input.model }
+    );
+
+    const extracted = result.extractedContent?.trim() ?? '';
+    const rawContent = extracted.length > 0 ? extracted : result.summary;
+    const contentType = result.contentType === 'image' ? 'image' : 'text';
+
+    const item = await this.contentRepo.create({
+      userId,
+      contentType,
+      rawContent,
+      tags: input.tags,
+    });
+
+    await this.contentRepo.update(item.id, userId, { summary: result.summary });
+
+    this.enrichmentService.enrichAsync(item, input.model).catch((err) => {
+      console.error('Background enrichment failed:', err);
+    });
+
+    return {
+      id: item.id,
+      status: 'captured',
+      enrichment: 'pending',
+    };
+  }
+
   async getById(userId: string, id: string): Promise<ContentItem | null> {
     return this.contentRepo.findById(id, userId);
   }

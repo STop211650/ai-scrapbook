@@ -78,6 +78,19 @@ describe('ContentService.capture', () => {
 
     mockSummarizeService = {
       summarize: vi.fn().mockResolvedValue({ summary: 'Summary from summarize service' }),
+      summarizeFile: vi.fn().mockResolvedValue({
+        summary: 'Summary from file',
+        contentType: 'document',
+        title: 'file.pdf',
+        extractedContent: 'Extracted text',
+        metadata: {
+          filename: 'file.pdf',
+          mediaType: 'application/pdf',
+          sizeBytes: 123,
+          truncated: false,
+          sourceUrl: null,
+        },
+      }),
     };
 
     mockAIProvider = {
@@ -212,5 +225,116 @@ describe('ContentService.capture', () => {
       expect.any(Object),
       'model-override'
     );
+  });
+});
+
+describe('ContentService.captureFile', () => {
+  beforeEach(() => {
+    mockContentRepo = {
+      create: vi.fn().mockResolvedValue({ ...mockItem }),
+      update: vi.fn().mockResolvedValue({ ...mockItem, summary: 'Summary from file' }),
+    };
+
+    mockEmbeddingRepo = {};
+
+    mockEnrichmentService = {
+      enrichAsync: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockSummarizeService = {
+      summarize: vi.fn().mockResolvedValue({ summary: 'Summary from summarize service' }),
+      summarizeFile: vi.fn().mockResolvedValue({
+        summary: 'Summary from file',
+        contentType: 'document',
+        title: 'file.pdf',
+        extractedContent: 'Extracted text',
+        metadata: {
+          filename: 'file.pdf',
+          mediaType: 'application/pdf',
+          sizeBytes: 123,
+          truncated: false,
+          sourceUrl: null,
+        },
+      }),
+    };
+
+    mockAIProvider = {
+      generateAnswer: vi.fn().mockResolvedValue({ answer: 'Fallback summary', sourcesUsed: [] }),
+    };
+
+    vi.clearAllMocks();
+  });
+
+  it('captures document files using summarizeFile and stores summary', async () => {
+    const service = new ContentService({} as any);
+
+    const response = await service.captureFile('user-123', {
+      filePath: '/tmp/file.pdf',
+      originalName: 'file.pdf',
+      mimeType: 'application/pdf',
+      tags: ['tag1'],
+      model: 'doc-model',
+    });
+
+    expect(mockSummarizeService.summarizeFile).toHaveBeenCalledWith(
+      {
+        filePath: '/tmp/file.pdf',
+        originalName: 'file.pdf',
+        mimeType: 'application/pdf',
+      },
+      { model: 'doc-model' }
+    );
+
+    expect(mockContentRepo.create).toHaveBeenCalledWith({
+      userId: 'user-123',
+      contentType: 'text',
+      rawContent: 'Extracted text',
+      tags: ['tag1'],
+    });
+
+    expect(mockContentRepo.update).toHaveBeenCalledWith('item-1', 'user-123', {
+      summary: 'Summary from file',
+    });
+
+    expect(mockEnrichmentService.enrichAsync).toHaveBeenCalledWith(
+      expect.any(Object),
+      'doc-model'
+    );
+
+    expect(response).toEqual({
+      id: 'item-1',
+      status: 'captured',
+      enrichment: 'pending',
+    });
+  });
+
+  it('uses summary as raw content for images', async () => {
+    mockSummarizeService.summarizeFile.mockResolvedValue({
+      summary: 'Image summary',
+      contentType: 'image',
+      title: 'photo.png',
+      extractedContent: '',
+      metadata: {
+        filename: 'photo.png',
+        mediaType: 'image/png',
+        sizeBytes: 456,
+        truncated: false,
+        sourceUrl: null,
+      },
+    });
+
+    const service = new ContentService({} as any);
+    await service.captureFile('user-123', {
+      filePath: '/tmp/photo.png',
+      originalName: 'photo.png',
+      mimeType: 'image/png',
+    });
+
+    expect(mockContentRepo.create).toHaveBeenCalledWith({
+      userId: 'user-123',
+      contentType: 'image',
+      rawContent: 'Image summary',
+      tags: undefined,
+    });
   });
 });
