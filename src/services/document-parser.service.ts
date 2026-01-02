@@ -1,6 +1,6 @@
 import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
-import type { AssetInput } from './asset.service.js';
+import { isTextLikeMediaType, type AssetInput } from './asset.service.js';
 
 const MAX_EXTRACTED_TEXT_CHARS = 20000;
 
@@ -24,7 +24,7 @@ export async function extractDocumentText(asset: AssetInput): Promise<ExtractedD
     throw new Error('Unsupported asset type for document extraction.');
   }
 
-  if (asset.mediaType === 'text/plain') {
+  if (isTextLikeMediaType(asset.mediaType)) {
     const text = new TextDecoder('utf-8').decode(asset.bytes);
     const normalized = normalizeText(text);
     return truncateText(normalized, MAX_EXTRACTED_TEXT_CHARS);

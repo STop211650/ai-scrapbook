@@ -2,7 +2,11 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { loadAssetFromPath } from '../src/services/asset.service.js';
+import {
+  classifyUrlAsAsset,
+  loadAssetFromPath,
+  loadAssetFromUrl,
+} from '../src/services/asset.service.js';
 
 vi.mock('file-type', () => ({
   fileTypeFromBuffer: vi.fn(),
@@ -58,6 +62,20 @@ describe('asset.service', () => {
     );
   });
 
+  it('accepts preprocessable office formats', async () => {
+    mockFileType.mockResolvedValueOnce(undefined);
+    const bytes = new Uint8Array([0x00, 0x01, 0x02]);
+    const filePath = await writeTempFile(bytes, 'slides.ppt');
+
+    const asset = await loadAssetFromPath({
+      filePath,
+      providedMimeType: 'application/vnd.ms-powerpoint',
+    });
+
+    expect(asset.kind).toBe('document');
+    expect(asset.mediaType).toBe('application/vnd.ms-powerpoint');
+  });
+
   it('rejects archive types', async () => {
     mockFileType.mockResolvedValueOnce(undefined);
     const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
@@ -82,5 +100,71 @@ describe('asset.service', () => {
         maxBytes: 1,
       })
     ).rejects.toThrow(/File too large/i);
+  });
+
+  it('classifies URLs with file extensions as assets without fetching', async () => {
+    const fetchMock = vi.fn();
+    const result = await classifyUrlAsAsset({
+      url: 'https://example.com/report.pdf',
+      fetchImpl: fetchMock,
+    });
+
+    expect(result).toEqual({ kind: 'asset' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('classifies URLs as assets based on HEAD content-type', async () => {
+    const fetchMock = vi.fn(async (_input: string, init?: RequestInit) => {
+      if (init?.method === 'HEAD') {
+        return new Response(null, {
+          status: 200,
+          headers: { 'content-type': 'application/pdf' },
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const result = await classifyUrlAsAsset({
+      url: 'https://example.com/download?id=123',
+      fetchImpl: fetchMock,
+    });
+
+    expect(result).toEqual({ kind: 'asset' });
+  });
+
+  it('loads remote assets and detects media type', async () => {
+    mockFileType.mockResolvedValueOnce({ ext: 'png', mime: 'image/png' });
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = vi.fn(async () => {
+      return new Response(Buffer.from(bytes), {
+        status: 200,
+        headers: { 'content-type': 'image/png', 'content-length': String(bytes.byteLength) },
+      });
+    });
+
+    const asset = await loadAssetFromUrl({
+      url: 'https://example.com/image.png',
+      fetchImpl: fetchMock,
+    });
+
+    expect(asset.kind).toBe('image');
+    expect(asset.mediaType).toBe('image/png');
+  });
+
+  it('rejects HTML responses for asset URLs', async () => {
+    mockFileType.mockResolvedValueOnce(undefined);
+    const fetchMock = vi.fn(async () => {
+      return new Response('<html><body>not a file</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    });
+
+    await expect(
+      loadAssetFromUrl({
+        url: 'https://example.com/not-a-file',
+        fetchImpl: fetchMock,
+      })
+    ).rejects.toThrow(/HTML/i);
   });
 });

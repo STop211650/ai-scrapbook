@@ -56,4 +56,17 @@ describe('document-parser.service', () => {
     expect(result.text.length).toBe(20000);
     expect(result.truncated).toBe(true);
   });
+
+  it('handles text-like media types by decoding bytes', async () => {
+    const result = await extractDocumentText({
+      kind: 'document',
+      mediaType: 'application/json',
+      filename: 'sample.json',
+      bytes: new TextEncoder().encode('{"hello": "world"}'),
+      sizeBytes: 18,
+    });
+
+    expect(result.text).toBe('{"hello": "world"}');
+    expect(result.truncated).toBe(false);
+  });
 });

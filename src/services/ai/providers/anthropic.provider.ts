@@ -1,4 +1,4 @@
-import { generateText, embed, type ImagePart, type TextPart } from 'ai';
+import { generateText, embed, type FilePart, type ImagePart, type TextPart } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import {
@@ -135,7 +135,9 @@ Instructions:
 Answer:`
         : query;
 
-    const contentParts: Array<TextPart | ImagePart> = [{ type: 'text', text: prompt }];
+    const contentParts: Array<TextPart | ImagePart | FilePart> = [
+      { type: 'text', text: prompt },
+    ];
     if (attachments?.length) {
       for (const attachment of attachments) {
         contentParts.push(toAnthropicContentPart(attachment));
@@ -173,7 +175,7 @@ Answer:`
   }
 }
 
-function toAnthropicContentPart(attachment: Attachment): ImagePart {
+function toAnthropicContentPart(attachment: Attachment): ImagePart | FilePart {
   if (attachment.kind === 'image') {
     return {
       type: 'image',
@@ -182,5 +184,16 @@ function toAnthropicContentPart(attachment: Attachment): ImagePart {
     };
   }
 
-  throw new Error(`Unsupported attachment kind: ${attachment.kind}`);
+  if (attachment.kind === 'document') {
+    return {
+      type: 'file',
+      data: attachment.data,
+      mediaType: attachment.mediaType,
+      filename: attachment.filename ?? undefined,
+    };
+  }
+
+  const exhaustiveCheck: never = attachment;
+  void exhaustiveCheck;
+  throw new Error('Unsupported attachment kind');
 }

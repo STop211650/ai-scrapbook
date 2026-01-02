@@ -5,15 +5,23 @@ import {
   type SummaryLength as CoreSummaryLength,
 } from '@steipete/summarize-core/prompts';
 import { getAIProvider } from './ai/ai.service.js';
-import { loadAssetFromPath, type AssetInput } from './asset.service.js';
+import {
+  classifyUrlAsAsset,
+  loadAssetFromPath,
+  loadAssetFromUrl,
+  MAX_UPLOAD_BYTES,
+  shouldPreprocessMediaType,
+  type AssetInput,
+} from './asset.service.js';
 import { extractDocumentText } from './document-parser.service.js';
 import { downloadGoogleDocAsDocx, isGoogleDocUrl } from './google-docs.service.js';
+import { convertToMarkdownWithMarkitdown } from './markitdown.service.js';
 import { fetchSummarizeCoreContent } from './summarize-core.client.js';
 import { TwitterService, getTwitterService, isTwitterUrl } from './twitter.service.js';
 import { RedditService, getRedditService, isRedditUrl } from './reddit.service.js';
 import { env } from '../config/env.js';
 
-export type ContentType = 'twitter' | 'reddit' | 'article' | 'unknown';
+export type ContentType = 'twitter' | 'reddit' | 'article' | 'unknown' | 'image' | 'document';
 export type SummaryLength = CoreSummaryLength;
 
 export interface SummarizeOptions {
@@ -32,6 +40,10 @@ export interface SummarizeResult {
     author?: string;
     domain?: string;
     engagement?: string;
+    filename?: string | null;
+    mediaType?: string;
+    sizeBytes?: number;
+    truncated?: boolean;
   };
 }
 
@@ -54,6 +66,13 @@ type SummarizeFileInput = {
   originalName?: string | null;
   mimeType?: string | null;
   sourceUrl?: string | null;
+};
+
+const isHtmlAssetError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { message?: unknown };
+  const message = typeof err.message === 'string' ? err.message.toLowerCase() : '';
+  return message.includes('html');
 };
 
 const FILE_SUMMARY_DIRECTIVES: Record<
@@ -87,6 +106,46 @@ const FILE_SUMMARY_DIRECTIVES: Record<
   },
 };
 
+const MARKITDOWN_MAX_CHARS = 20_000;
+const DEFAULT_MARKITDOWN_TIMEOUT_MS = 60_000;
+
+const isHtmlMediaType = (mediaType: string | null): boolean =>
+  mediaType === 'text/html' || mediaType === 'application/xhtml+xml';
+
+const truncateMarkdown = (value: string): { text: string; truncated: boolean } => {
+  const trimmed = value.trim();
+  if (trimmed.length <= MARKITDOWN_MAX_CHARS) {
+    return { text: trimmed, truncated: false };
+  }
+  return { text: trimmed.slice(0, MARKITDOWN_MAX_CHARS), truncated: true };
+};
+
+// Adapted from summarize CLI asset preprocessing (src/run/flows/asset/preprocess.ts).
+const extractWithMarkitdown = async (
+  asset: AssetInput
+): Promise<{ text: string; truncated: boolean }> => {
+  try {
+    const markdown = await convertToMarkdownWithMarkitdown({
+      bytes: asset.bytes,
+      filenameHint: asset.filename,
+      mediaTypeHint: asset.mediaType,
+      uvxCommand: env.UVX_PATH,
+      timeoutMs: env.MARKITDOWN_TIMEOUT_MS ?? DEFAULT_MARKITDOWN_TIMEOUT_MS,
+      env: {},
+    });
+    return truncateMarkdown(markdown);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('ENOENT') || message.includes('uvx')) {
+      const hint = env.UVX_PATH
+        ? `Check UVX_PATH (${env.UVX_PATH}) or ensure uvx is installed.`
+        : 'Install uv/uvx and markitdown, or set UVX_PATH to the uvx binary.';
+      throw new Error(`Missing uvx/markitdown for preprocessing ${asset.mediaType}. ${hint}`);
+    }
+    throw new Error(`Failed to preprocess ${asset.mediaType} with markitdown: ${message}.`);
+  }
+};
+
 const buildDocumentSummaryPrompt = ({
   asset,
   content,
@@ -112,6 +171,26 @@ const buildDocumentSummaryPrompt = ({
     '',
     'Document content:',
     content,
+  ].filter((line) => typeof line === 'string' && line.length > 0);
+
+  return lines.join('\n');
+};
+
+const buildDocumentAttachmentPrompt = ({
+  asset,
+  summaryLength,
+}: {
+  asset: AssetInput;
+  summaryLength: SummaryLength;
+}): string => {
+  const directive = FILE_SUMMARY_DIRECTIVES[summaryLength];
+  const lines = [
+    'Summarize the attached document.',
+    asset.filename ? `Filename: ${asset.filename}` : null,
+    asset.mediaType ? `File type: ${asset.mediaType}` : null,
+    directive.guidance,
+    directive.formatting,
+    'Write in direct, factual language. Use Markdown.',
   ].filter((line) => typeof line === 'string' && line.length > 0);
 
   return lines.join('\n');
@@ -143,6 +222,10 @@ const resolveModelForKind = (kind: 'url' | 'image' | 'document'): string | undef
   if (kind === 'document') return env.AI_MODEL_DOCUMENT ?? env.AI_MODEL_DEFAULT;
   return env.AI_MODEL_URL ?? env.AI_MODEL_DEFAULT;
 };
+
+// Adapted from summarize/src/run/attachments.ts supportsNativeFileAttachment (PDF only).
+const supportsPdfAttachment = (providerName: string): boolean =>
+  providerName === 'openai' || providerName === 'anthropic';
 
 /**
  * Determine the content type represented by a URL.
@@ -219,7 +302,25 @@ export class SummarizeService {
       };
     }
 
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      throw new Error('Invalid URL provided. Please ensure the URL is properly formatted.');
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new Error('Only HTTP and HTTPS URLs are supported.');
+    }
+
     const contentType = detectContentType(url);
+
+    if (contentType === 'article') {
+      const assetSummary = await this.trySummarizeAssetUrl(url, options);
+      if (assetSummary) {
+        return assetSummary;
+      }
+    }
 
     // Throw clear error for invalid URLs
     if (contentType === 'unknown') {
@@ -347,13 +448,21 @@ export class SummarizeService {
     input: SummarizeFileInput,
     options: SummarizeOptions = {}
   ): Promise<SummarizeFileResult> {
-    const { length = 'medium', includeMetadata = true } = options;
     const asset = await loadAssetFromPath({
       filePath: input.filePath,
       originalName: input.originalName ?? null,
       providedMimeType: input.mimeType ?? null,
     });
 
+    return this.summarizeAsset(asset, options, input.sourceUrl ?? null);
+  }
+
+  private async summarizeAsset(
+    asset: AssetInput,
+    options: SummarizeOptions,
+    sourceUrl: string | null
+  ): Promise<SummarizeFileResult> {
+    const { length = 'medium', includeMetadata = true } = options;
     const aiProvider = getAIProvider();
     const maxTokens = SUMMARY_LENGTH_TO_TOKENS[length] ?? 1536;
 
@@ -384,21 +493,72 @@ export class SummarizeService {
               filename: asset.filename,
               mediaType: asset.mediaType,
               sizeBytes: asset.sizeBytes,
-              sourceUrl: input.sourceUrl ?? null,
+              sourceUrl,
             }
           : undefined,
       };
     }
 
-    const extracted = await extractDocumentText(asset);
-    if (!extracted.text) {
+    const canAttachPdf =
+      asset.mediaType === 'application/pdf' &&
+      asset.sizeBytes <= MAX_UPLOAD_BYTES &&
+      supportsPdfAttachment(aiProvider.name);
+
+    if (canAttachPdf) {
+      const prompt = buildDocumentAttachmentPrompt({ asset, summaryLength: length });
+      const result = await aiProvider.generateAnswer({
+        query: prompt,
+        sources: [],
+        maxTokens,
+        model: options.model ?? resolveModelForKind('document'),
+        attachments: [
+          {
+            kind: 'document' as const,
+            mediaType: asset.mediaType,
+            data: Buffer.from(asset.bytes).toString('base64'),
+            filename: asset.filename,
+          },
+        ],
+      });
+
+      return {
+        summary: result.answer,
+        contentType: 'document',
+        title: asset.filename ?? null,
+        extractedContent: '',
+        metadata: includeMetadata
+          ? {
+              filename: asset.filename,
+              mediaType: asset.mediaType,
+              sizeBytes: asset.sizeBytes,
+              sourceUrl,
+            }
+          : undefined,
+      };
+    }
+
+    let extractedText: { text: string; truncated: boolean };
+    if (isHtmlMediaType(asset.mediaType) && shouldPreprocessMediaType(asset.mediaType)) {
+      extractedText = await extractWithMarkitdown(asset);
+    } else {
+      try {
+        extractedText = await extractDocumentText(asset);
+      } catch (error) {
+        if (!shouldPreprocessMediaType(asset.mediaType)) {
+          throw error;
+        }
+        extractedText = await extractWithMarkitdown(asset);
+      }
+    }
+
+    if (!extractedText.text) {
       throw new Error('No readable text found in the document.');
     }
 
     const prompt = buildDocumentSummaryPrompt({
       asset,
-      content: extracted.text,
-      truncated: extracted.truncated,
+      content: extractedText.text,
+      truncated: extractedText.truncated,
       summaryLength: length,
     });
     const result = await aiProvider.generateAnswer({
@@ -412,14 +572,14 @@ export class SummarizeService {
       summary: result.answer,
       contentType: 'document',
       title: asset.filename ?? null,
-      extractedContent: extracted.text.substring(0, 1000),
+      extractedContent: extractedText.text.substring(0, 1000),
       metadata: includeMetadata
         ? {
             filename: asset.filename,
             mediaType: asset.mediaType,
             sizeBytes: asset.sizeBytes,
-            truncated: extracted.truncated,
-            sourceUrl: input.sourceUrl ?? null,
+            truncated: extractedText.truncated,
+            sourceUrl,
           }
         : undefined,
     };
@@ -442,6 +602,43 @@ export class SummarizeService {
       );
     } finally {
       await fs.unlink(filePath).catch(() => {});
+    }
+  }
+
+  // Adapted from summarize CLI URL asset handling (src/content/asset.ts + src/run/flows/asset/input.ts).
+  private async trySummarizeAssetUrl(
+    url: string,
+    options: SummarizeOptions
+  ): Promise<SummarizeResult | null> {
+    const { includeMetadata = true } = options;
+    const kind = await classifyUrlAsAsset({ url });
+    if (kind.kind !== 'asset') return null;
+
+    try {
+      const asset = await loadAssetFromUrl({ url });
+      const fileResult = await this.summarizeAsset(asset, options, url);
+
+      return {
+        summary: fileResult.summary,
+        contentType: fileResult.contentType,
+        title: fileResult.title,
+        sourceUrl: url,
+        extractedContent: fileResult.extractedContent,
+        metadata: includeMetadata
+          ? {
+              domain: getDomain(url) ?? undefined,
+              filename: fileResult.metadata?.filename ?? null,
+              mediaType: fileResult.metadata?.mediaType,
+              sizeBytes: fileResult.metadata?.sizeBytes,
+              truncated: fileResult.metadata?.truncated,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      if (isHtmlAssetError(error)) {
+        return null;
+      }
+      throw error;
     }
   }
 

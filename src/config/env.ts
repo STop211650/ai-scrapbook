@@ -32,6 +32,14 @@ const envSchema = z.object({
   // Server
   PORT: z.string().default('3000').transform(Number),
 
+  // Markitdown preprocessing (optional)
+  UVX_PATH: z.string().min(1).optional(),
+  MARKITDOWN_TIMEOUT_MS: z
+    .preprocess(
+      (value) => (typeof value === 'string' && value.trim().length > 0 ? Number(value) : undefined),
+      z.number().positive().optional()
+    ),
+
   // Summarize-core optional services
   FIRECRAWL_API_KEY: z.string().min(1).optional(),
   APIFY_API_TOKEN: z.string().min(1).optional(),

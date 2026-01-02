@@ -48,7 +48,12 @@ const parseBoolean = (value: unknown, fallback: boolean): boolean => {
 };
 
 const summarizeSchema = z.object({
-  url: z.string().url('Invalid URL format'),
+  url: z
+    .string()
+    .url('Invalid URL format')
+    .refine((value) => /^https?:\/\//i.test(value), {
+      message: 'Only http(s) URLs are supported',
+    }),
   length: z.enum(['short', 'medium', 'long', 'xl', 'xxl']).optional(),
   includeMetadata: z.boolean().optional(),
   model: z.string().min(1).optional(),
