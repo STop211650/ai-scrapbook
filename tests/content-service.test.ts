@@ -63,41 +63,41 @@ const mockItem = {
   updatedAt: new Date('2025-01-01T00:00:00.000Z'),
 };
 
+/** Creates standard mock implementations for content service tests */
+const createMocks = (overrides?: { summaryValue?: string }) => {
+  mockContentRepo = {
+    create: vi.fn().mockResolvedValue({ ...mockItem }),
+    update: vi.fn().mockResolvedValue({ ...mockItem, summary: overrides?.summaryValue ?? 'summary' }),
+  };
+  mockEmbeddingRepo = {};
+  mockEnrichmentService = {
+    enrichAsync: vi.fn().mockResolvedValue(undefined),
+  };
+  mockSummarizeService = {
+    summarize: vi.fn().mockResolvedValue({ summary: 'Summary from summarize service' }),
+    summarizeFile: vi.fn().mockResolvedValue({
+      summary: 'Summary from file',
+      contentType: 'document',
+      title: 'file.pdf',
+      extractedContent: 'Extracted text',
+      metadata: {
+        filename: 'file.pdf',
+        mediaType: 'application/pdf',
+        sizeBytes: 123,
+        truncated: false,
+        sourceUrl: null,
+      },
+    }),
+  };
+  mockAIProvider = {
+    generateAnswer: vi.fn().mockResolvedValue({ answer: 'Fallback summary', sourcesUsed: [] }),
+  };
+  vi.clearAllMocks();
+};
+
 describe('ContentService.capture', () => {
   beforeEach(() => {
-    mockContentRepo = {
-      create: vi.fn().mockResolvedValue({ ...mockItem }),
-      update: vi.fn().mockResolvedValue({ ...mockItem, summary: 'summary' }),
-    };
-
-    mockEmbeddingRepo = {};
-
-    mockEnrichmentService = {
-      enrichAsync: vi.fn().mockResolvedValue(undefined),
-    };
-
-    mockSummarizeService = {
-      summarize: vi.fn().mockResolvedValue({ summary: 'Summary from summarize service' }),
-      summarizeFile: vi.fn().mockResolvedValue({
-        summary: 'Summary from file',
-        contentType: 'document',
-        title: 'file.pdf',
-        extractedContent: 'Extracted text',
-        metadata: {
-          filename: 'file.pdf',
-          mediaType: 'application/pdf',
-          sizeBytes: 123,
-          truncated: false,
-          sourceUrl: null,
-        },
-      }),
-    };
-
-    mockAIProvider = {
-      generateAnswer: vi.fn().mockResolvedValue({ answer: 'Fallback summary', sourcesUsed: [] }),
-    };
-
-    vi.clearAllMocks();
+    createMocks();
   });
 
   it('summarizes URL content asynchronously and stores summary', async () => {
@@ -230,39 +230,7 @@ describe('ContentService.capture', () => {
 
 describe('ContentService.captureFile', () => {
   beforeEach(() => {
-    mockContentRepo = {
-      create: vi.fn().mockResolvedValue({ ...mockItem }),
-      update: vi.fn().mockResolvedValue({ ...mockItem, summary: 'Summary from file' }),
-    };
-
-    mockEmbeddingRepo = {};
-
-    mockEnrichmentService = {
-      enrichAsync: vi.fn().mockResolvedValue(undefined),
-    };
-
-    mockSummarizeService = {
-      summarize: vi.fn().mockResolvedValue({ summary: 'Summary from summarize service' }),
-      summarizeFile: vi.fn().mockResolvedValue({
-        summary: 'Summary from file',
-        contentType: 'document',
-        title: 'file.pdf',
-        extractedContent: 'Extracted text',
-        metadata: {
-          filename: 'file.pdf',
-          mediaType: 'application/pdf',
-          sizeBytes: 123,
-          truncated: false,
-          sourceUrl: null,
-        },
-      }),
-    };
-
-    mockAIProvider = {
-      generateAnswer: vi.fn().mockResolvedValue({ answer: 'Fallback summary', sourcesUsed: [] }),
-    };
-
-    vi.clearAllMocks();
+    createMocks({ summaryValue: 'Summary from file' });
   });
 
   it('captures document files using summarizeFile and stores summary', async () => {

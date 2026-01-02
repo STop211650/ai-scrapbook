@@ -4,8 +4,6 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-// Adapted from summarize/src/markitdown.ts for optional document preprocessing.
-
 const MAX_MARKITDOWN_BUFFER_BYTES = 50 * 1024 * 1024;
 
 const guessExtension = ({
@@ -41,6 +39,11 @@ const execFileText = async (
     });
   });
 
+/**
+ * Converts a document (PDF, Office, HTML, etc.) to Markdown using markitdown.
+ * Writes bytes to a temp file, invokes uvx markitdown, and returns the output.
+ * Throws if markitdown returns empty output or times out.
+ */
 export async function convertToMarkdownWithMarkitdown({
   bytes,
   filenameHint,

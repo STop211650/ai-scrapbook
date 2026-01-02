@@ -119,7 +119,10 @@ const isLikelyAssetPathname = (pathname: string): boolean => {
   return true;
 };
 
-// Adapted from summarize/src/run/attachments.ts to inline text-like assets instead of attachments.
+/**
+ * Checks if a media type represents text-like content that can be inlined.
+ * Includes text/*, JSON, XML, YAML, TOML, RTF, and JavaScript.
+ */
 export const isTextLikeMediaType = (mediaType: string): boolean => {
   const mt = mediaType.toLowerCase();
   if (mt.startsWith('text/')) return true;
@@ -134,7 +137,10 @@ export const isTextLikeMediaType = (mediaType: string): boolean => {
   );
 };
 
-// Adapted from summarize/src/run/attachments.ts shouldMarkitdownConvertMediaType.
+/**
+ * Checks if a media type should be preprocessed with markitdown before AI analysis.
+ * Returns true for PDFs, RTF, HTML, MS Office formats, and OpenXML documents.
+ */
 export const shouldPreprocessMediaType = (mediaType: string): boolean => {
   const mt = mediaType.toLowerCase();
   if (mt === 'application/pdf') return true;
@@ -147,6 +153,11 @@ export const shouldPreprocessMediaType = (mediaType: string): boolean => {
   return false;
 };
 
+/**
+ * Classifies a media type as 'image', 'document', or null if unsupported.
+ * Images must be JPEG, PNG, GIF, or WebP. Documents include text-like files,
+ * PDFs, and Office formats.
+ */
 export const classifyAssetKind = (mediaType: string): AssetKind | null => {
   if (mediaType.startsWith('image/')) {
     return SUPPORTED_IMAGE_TYPES.has(mediaType) ? 'image' : null;
@@ -157,6 +168,10 @@ export const classifyAssetKind = (mediaType: string): AssetKind | null => {
   return null;
 };
 
+/**
+ * Determines if a URL points to a downloadable asset or a website.
+ * Uses pathname extension, HEAD request, and partial GET to detect asset URLs.
+ */
 export async function classifyUrlAsAsset({
   url,
   fetchImpl = fetch,
@@ -215,6 +230,10 @@ export async function classifyUrlAsAsset({
   return { kind: 'website' };
 }
 
+/**
+ * Downloads and validates a remote file as an asset.
+ * Throws if the URL is HTML, an archive, unsupported type, or exceeds size limit.
+ */
 export async function loadAssetFromUrl({
   url,
   fetchImpl = fetch,
@@ -288,6 +307,10 @@ export async function loadAssetFromUrl({
   }
 }
 
+/**
+ * Loads and validates a local file as an asset.
+ * Throws if the file is an archive, unsupported type, or exceeds size limit.
+ */
 export async function loadAssetFromPath({
   filePath,
   originalName,
