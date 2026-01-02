@@ -173,6 +173,13 @@ Answer:`
   }
 }
 
+/**
+ * Convert an Attachment into an Anthropic ImagePart.
+ *
+ * @param attachment - The attachment to convert; must have kind `'image'` to produce an image part.
+ * @returns An ImagePart containing the attachment's binary `image` data and `mediaType`.
+ * @throws Error if `attachment.kind` is not `'image'`.
+ */
 function toAnthropicContentPart(attachment: Attachment): ImagePart {
   if (attachment.kind === 'image') {
     return {

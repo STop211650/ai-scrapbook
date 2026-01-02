@@ -12,7 +12,15 @@ import { env } from '../../config/env.js';
 
 let aiProvider: AIProvider | null = null;
 
-// Factory function to create the appropriate provider
+/**
+ * Create and configure the AI provider instance based on environment settings.
+ *
+ * Reads the provider type and default model from environment variables and constructs
+ * the corresponding provider implementation (`AnthropicProvider` or `OpenAIProvider`).
+ *
+ * @returns An initialized `AIProvider` configured for the selected provider type.
+ * @throws Error if the required API key for the chosen provider is not present in the environment.
+ */
 function createProvider(): AIProvider {
   const providerType = env.AI_PROVIDER as AIProviderType;
   const defaultModel = env.AI_MODEL_DEFAULT;

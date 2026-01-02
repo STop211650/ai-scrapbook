@@ -39,6 +39,19 @@ const parseFilenameFromHeader = (header: string | null): string | null => {
   }
 };
 
+/**
+ * Download a Google Docs document as a DOCX file to a temporary file and return its path and filename.
+ *
+ * @param url - The Google Docs URL to download (must point to a document under /document/d/).
+ * @param maxBytes - Maximum allowed file size in bytes; defaults to `MAX_UPLOAD_BYTES`.
+ * @param timeoutMs - Request timeout in milliseconds; defaults to `60000`.
+ * @returns An object containing `filePath` (absolute path to the saved DOCX file) and `filename` (base filename).
+ * @throws Error when the URL is not a supported Google Docs document URL.
+ * @throws Error when the export request returns a non-OK HTTP status.
+ * @throws Error when the export returns HTML (document may not be publicly accessible).
+ * @throws Error when the document size exceeds `maxBytes` (based on Content-Length or actual response size).
+ * @throws Error (or an AbortError) when the request is aborted due to timeout.
+ */
 export async function downloadGoogleDocAsDocx({
   url,
   maxBytes = MAX_UPLOAD_BYTES,

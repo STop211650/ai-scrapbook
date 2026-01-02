@@ -74,6 +74,19 @@ export const classifyAssetKind = (mediaType: string): AssetKind | null => {
   return null;
 };
 
+/**
+ * Loads a file from disk, detects its MIME type and asset kind, and returns a validated AssetInput.
+ *
+ * @param filePath - Path to the file on disk.
+ * @param originalName - Optional original filename to preserve; falls back to the basename of `filePath` when missing or empty.
+ * @param providedMimeType - Optional MIME type hint to use if file-type sniffing does not produce a definitive result.
+ * @param maxBytes - Maximum allowed file size in bytes; files larger than this are rejected.
+ * @returns An AssetInput containing `kind`, `mediaType`, `filename`, `bytes`, and `sizeBytes`.
+ * @throws Error if `filePath` is not a regular file.
+ * @throws Error if the file size exceeds `maxBytes`.
+ * @throws Error if the detected media type is an unsupported archive format.
+ * @throws Error if the detected media type is not a supported image or document type.
+ */
 export async function loadAssetFromPath({
   filePath,
   originalName,

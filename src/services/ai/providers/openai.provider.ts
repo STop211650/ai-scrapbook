@@ -171,6 +171,13 @@ Answer the question using only the information from the sources above. Use [1], 
   }
 }
 
+/**
+ * Converts an Attachment into an OpenAI-compatible ImagePart.
+ *
+ * @param attachment - Attachment whose `kind` must be `'image'`; its `data` and `mediaType` will be used for the resulting part.
+ * @returns An ImagePart containing the attachment's image data and media type.
+ * @throws Error if `attachment.kind` is not `'image'`.
+ */
 function toOpenAiContentPart(attachment: Attachment): ImagePart {
   if (attachment.kind === 'image') {
     return {

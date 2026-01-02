@@ -19,6 +19,14 @@ const truncateText = (value: string, maxChars: number): ExtractedDocumentText =>
   return { text: value.slice(0, maxChars), truncated: true };
 };
 
+/**
+ * Extracts and normalizes text from a document asset and indicates if the result was truncated.
+ *
+ * @param asset - The asset to extract from; must have `kind === 'document'` and `bytes` containing the file data. Supported `mediaType` values: `text/plain`, `application/pdf`, and `application/vnd.openxmlformats-officedocument.wordprocessingml.document`.
+ * @returns An object with `text` containing the whitespace-normalized extracted text and `truncated` set to `true` if the text was cut to the maximum allowed length.
+ * @throws Error('Unsupported asset type for document extraction.') if `asset.kind` is not `'document'`.
+ * @throws Error(`Unsupported document type: ${asset.mediaType}`) if `asset.mediaType` is not supported.
+ */
 export async function extractDocumentText(asset: AssetInput): Promise<ExtractedDocumentText> {
   if (asset.kind !== 'document') {
     throw new Error('Unsupported asset type for document extraction.');
