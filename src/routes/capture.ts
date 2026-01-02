@@ -10,6 +10,7 @@ const router = Router();
 const captureSchema = z.object({
   content: z.string().min(1, 'Content is required'),
   tags: z.array(z.string()).optional(),
+  model: z.string().min(1).optional(),
 });
 
 // POST /capture

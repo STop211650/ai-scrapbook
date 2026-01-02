@@ -15,7 +15,7 @@ export class AskService {
   }
 
   async ask(userId: string, request: AskRequest): Promise<AskResponse> {
-    const { query, limit = 5, mode = 'hybrid' } = request;
+    const { query, limit = 5, mode = 'hybrid', model } = request;
 
     // Step 1: Search for relevant content using existing search infrastructure
     const searchResults = await this.searchService.search(userId, {
@@ -59,6 +59,7 @@ export class AskService {
       query,
       sources: sourceContexts,
       maxTokens: 1500,
+      model,
     });
 
     // Step 4: Build response with source metadata for cited sources only

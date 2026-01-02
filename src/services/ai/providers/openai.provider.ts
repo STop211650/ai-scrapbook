@@ -1,6 +1,8 @@
-import OpenAI from 'openai';
+import { generateText, embed, type ImagePart, type TextPart } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 import {
   AIProvider,
+  Attachment,
   EnrichmentResult,
   EnrichmentOptions,
   GenerateAnswerOptions,
@@ -9,10 +11,14 @@ import {
 
 export class OpenAIProvider implements AIProvider {
   readonly name = 'openai';
-  private client: OpenAI;
+  private provider;
+  private defaultModelId: string;
+  private embeddingModel;
 
-  constructor(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  constructor(apiKey: string, defaultModelId?: string) {
+    this.provider = createOpenAI({ apiKey });
+    this.defaultModelId = defaultModelId?.trim() || 'gpt-5-mini';
+    this.embeddingModel = this.provider.textEmbeddingModel('text-embedding-3-small');
   }
 
   async enrich(
@@ -52,17 +58,18 @@ Tag guidelines:
 
 Respond ONLY with valid JSON, no other text.`;
 
-    const response = await this.client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      max_tokens: 500,
+    const model = this.provider.chat(options?.model ?? this.defaultModelId);
+    const { text } = await generateText({
+      model,
+      prompt,
+      maxOutputTokens: 500,
     });
 
     // Parse JSON with error handling to prevent crashes from malformed responses
     let result: { title?: string; description?: string; tags?: unknown } = {};
     try {
-      result = JSON.parse(response.choices[0].message.content || '{}');
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
     } catch (error) {
       console.error('Failed to parse OpenAI enrichment response:', error);
       return { title: 'Untitled', description: '', tags: [] };
@@ -76,16 +83,16 @@ Respond ONLY with valid JSON, no other text.`;
   }
 
   async embed(text: string): Promise<number[]> {
-    const response = await this.client.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: text.substring(0, 8000),
+    const { embedding } = await embed({
+      model: this.embeddingModel,
+      value: text.substring(0, 8000),
     });
 
-    return response.data[0].embedding;
+    return embedding;
   }
 
   async generateAnswer(options: GenerateAnswerOptions): Promise<GenerateAnswerResult> {
-    const { query, sources, maxTokens = 1500 } = options;
+    const { query, sources, maxTokens = 1500, attachments } = options;
 
     // Build context string with numbered sources for citation
     const contextParts = sources.map((source, index) => {
@@ -104,24 +111,48 @@ Format your response in markdown. Include citations inline where you reference i
 
 After your answer, do NOT include a sources list - the frontend will render that from the metadata.`;
 
-    const userPrompt = `Sources:
+    const userPrompt =
+      sources.length > 0
+        ? `Sources:
 ${contextString}
 
 Question: ${query}
 
-Answer the question using only the information from the sources above. Use [1], [2], etc. to cite sources inline.`;
+Answer the question using only the information from the sources above. Use [1], [2], etc. to cite sources inline.`
+        : query;
 
-    const response = await this.client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.3, // Lower temperature for factual accuracy
+    const contentParts: Array<TextPart | ImagePart> = [{ type: 'text', text: userPrompt }];
+
+    if (attachments?.length) {
+      for (const attachment of attachments) {
+        contentParts.push(toOpenAiContentPart(attachment));
+      }
+    }
+
+    const messages =
+      sources.length > 0
+        ? [
+            { role: 'system' as const, content: systemPrompt },
+            {
+              role: 'user' as const,
+              content: attachments?.length ? contentParts : userPrompt,
+            },
+          ]
+        : [
+            {
+              role: 'user' as const,
+              content: attachments?.length ? contentParts : userPrompt,
+            },
+          ];
+
+    const model = this.provider.chat(options.model ?? this.defaultModelId);
+    const { text } = await generateText({
+      model,
+      messages,
+      maxOutputTokens: maxTokens,
     });
 
-    const answer = response.choices[0].message.content || '';
+    const answer = text || '';
 
     // Extract which sources were actually cited by finding [N] patterns
     const citationPattern = /\[(\d+)\]/g;
@@ -138,4 +169,16 @@ Answer the question using only the information from the sources above. Use [1], 
 
     return { answer, sourcesUsed };
   }
+}
+
+function toOpenAiContentPart(attachment: Attachment): ImagePart {
+  if (attachment.kind === 'image') {
+    return {
+      type: 'image',
+      image: attachment.data,
+      mediaType: attachment.mediaType,
+    };
+  }
+
+  throw new Error(`Unsupported attachment kind: ${attachment.kind}`);
 }

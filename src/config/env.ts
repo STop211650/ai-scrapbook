@@ -13,6 +13,10 @@ const envSchema = z.object({
   AI_PROVIDER: z.enum(['openai', 'anthropic']).default('openai'),
   OPENAI_API_KEY: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  AI_MODEL_DEFAULT: z.string().min(1).optional(),
+  AI_MODEL_URL: z.string().min(1).optional(),
+  AI_MODEL_DOCUMENT: z.string().min(1).optional(),
+  AI_MODEL_IMAGE: z.string().min(1).optional(),
 
   // Twitter/X (bird) - uses auth token + ct0, or Sweetistics API
   TWITTER_AUTH_TOKEN: z.string().min(1).optional(),

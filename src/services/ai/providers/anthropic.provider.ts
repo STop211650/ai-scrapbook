@@ -1,7 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
+import { generateText, embed, type ImagePart, type TextPart } from 'ai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAI } from '@ai-sdk/openai';
 import {
   AIProvider,
+  Attachment,
   EnrichmentResult,
   EnrichmentOptions,
   GenerateAnswerOptions,
@@ -10,14 +12,17 @@ import {
 
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic';
-  private client: Anthropic;
-  private openaiClient: OpenAI | null = null;
+  private embeddingModel: ReturnType<ReturnType<typeof createOpenAI>['textEmbeddingModel']> | null =
+    null;
+  private provider;
+  private defaultModelId: string;
 
-  constructor(apiKey: string, openaiApiKey?: string) {
-    this.client = new Anthropic({ apiKey });
-    // Use OpenAI for embeddings since Anthropic doesn't offer them
+  constructor(apiKey: string, openaiApiKey?: string, defaultModelId?: string) {
+    this.provider = createAnthropic({ apiKey });
+    this.defaultModelId = defaultModelId?.trim() || 'claude-haiku-4-5-latest';
     if (openaiApiKey) {
-      this.openaiClient = new OpenAI({ apiKey: openaiApiKey });
+      const openaiProvider = createOpenAI({ apiKey: openaiApiKey });
+      this.embeddingModel = openaiProvider.textEmbeddingModel('text-embedding-3-small');
     }
   }
 
@@ -58,14 +63,12 @@ Tag guidelines:
 
 Respond ONLY with valid JSON, no other text.`;
 
-    const response = await this.client.messages.create({
-      model: 'claude-3-5-haiku-latest',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }],
+    const model = this.provider(options?.model ?? this.defaultModelId);
+    const { text } = await generateText({
+      model,
+      prompt,
+      maxOutputTokens: 500,
     });
-
-    const textBlock = response.content.find((block) => block.type === 'text');
-    const text = textBlock?.type === 'text' ? textBlock.text : '{}';
 
     // Extract JSON from response (Claude might include extra text)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -88,20 +91,20 @@ Respond ONLY with valid JSON, no other text.`;
 
   async embed(text: string): Promise<number[]> {
     // Anthropic doesn't offer embeddings, so we use OpenAI
-    if (!this.openaiClient) {
+    if (!this.embeddingModel) {
       throw new Error('OpenAI API key required for embeddings when using Anthropic provider');
     }
 
-    const response = await this.openaiClient.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: text.substring(0, 8000),
+    const { embedding } = await embed({
+      model: this.embeddingModel,
+      value: text.substring(0, 8000),
     });
 
-    return response.data[0].embedding;
+    return embedding;
   }
 
   async generateAnswer(options: GenerateAnswerOptions): Promise<GenerateAnswerResult> {
-    const { query, sources, maxTokens = 1500 } = options;
+    const { query, sources, maxTokens = 1500, attachments } = options;
 
     // Build context string with numbered sources for citation
     const contextParts = sources.map((source, index) => {
@@ -112,7 +115,9 @@ Respond ONLY with valid JSON, no other text.`;
 
     const contextString = contextParts.join('\n\n---\n\n');
 
-    const prompt = `You are a helpful assistant that answers questions based on the user's saved content.
+    const prompt =
+      sources.length > 0
+        ? `You are a helpful assistant that answers questions based on the user's saved content.
 Use ONLY the provided sources to answer. If the sources don't contain relevant information, say so.
 
 Sources:
@@ -127,16 +132,29 @@ Instructions:
 - Do NOT include a sources list at the end - just use inline citations
 - If sources don't contain relevant info, acknowledge this
 
-Answer:`;
+Answer:`
+        : query;
 
-    const response = await this.client.messages.create({
-      model: 'claude-3-5-haiku-latest',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
+    const contentParts: Array<TextPart | ImagePart> = [{ type: 'text', text: prompt }];
+    if (attachments?.length) {
+      for (const attachment of attachments) {
+        contentParts.push(toAnthropicContentPart(attachment));
+      }
+    }
+
+    const model = this.provider(options.model ?? this.defaultModelId);
+    const { text } = await generateText({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: attachments?.length ? contentParts : prompt,
+        },
+      ],
+      maxOutputTokens: maxTokens,
     });
 
-    const textBlock = response.content.find((block) => block.type === 'text');
-    const answer = textBlock?.type === 'text' ? textBlock.text : '';
+    const answer = text || '';
 
     // Extract which sources were actually cited by finding [N] patterns
     const citationPattern = /\[(\d+)\]/g;
@@ -153,4 +171,16 @@ Answer:`;
 
     return { answer, sourcesUsed };
   }
+}
+
+function toAnthropicContentPart(attachment: Attachment): ImagePart {
+  if (attachment.kind === 'image') {
+    return {
+      type: 'image',
+      image: attachment.data,
+      mediaType: attachment.mediaType,
+    };
+  }
+
+  throw new Error(`Unsupported attachment kind: ${attachment.kind}`);
 }

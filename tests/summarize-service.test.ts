@@ -1,12 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const mockGenerateAnswer = vi.fn();
+const mockLoadAssetFromPath = vi.fn();
+const mockExtractDocumentText = vi.fn();
 
 vi.mock('../src/services/ai/ai.service.js', () => ({
   getAIProvider: () => ({
-    generateAnswer: vi.fn().mockResolvedValue({
-      answer: 'summary',
-      sourcesUsed: [],
-    }),
+    generateAnswer: mockGenerateAnswer,
   }),
+}));
+
+vi.mock('../src/services/asset.service.js', () => ({
+  loadAssetFromPath: (...args: unknown[]) => mockLoadAssetFromPath(...args),
+}));
+
+vi.mock('../src/services/document-parser.service.js', () => ({
+  extractDocumentText: (...args: unknown[]) => mockExtractDocumentText(...args),
 }));
 
 vi.mock('../src/services/summarize-core.client.js', () => ({
@@ -71,6 +80,16 @@ vi.mock('../src/services/reddit.service.js', async (importOriginal) => {
       isConfigured: () => false,
     }),
   };
+});
+
+beforeEach(() => {
+  mockGenerateAnswer.mockReset();
+  mockGenerateAnswer.mockResolvedValue({
+    answer: 'summary',
+    sourcesUsed: [],
+  });
+  mockLoadAssetFromPath.mockReset();
+  mockExtractDocumentText.mockReset();
 });
 
 describe('SummarizeService', () => {
@@ -157,5 +176,89 @@ describe('Summary length options', () => {
     // Verify service status is callable (basic behavior check)
     const status = service.getServiceStatus();
     expect(status).toBeDefined();
+  });
+});
+
+describe('SummarizeService.summarizeFile', () => {
+  it('summarizes images with attachments and model override', async () => {
+    const { SummarizeService } = await import('../src/services/summarize.service.js');
+
+    const bytes = new Uint8Array(Buffer.from('image-bytes'));
+    mockLoadAssetFromPath.mockResolvedValue({
+      kind: 'image',
+      mediaType: 'image/png',
+      filename: 'photo.png',
+      bytes,
+      sizeBytes: bytes.byteLength,
+    });
+    mockGenerateAnswer.mockResolvedValue({
+      answer: 'image summary',
+      sourcesUsed: [],
+    });
+
+    const service = new SummarizeService();
+    const result = await service.summarizeFile(
+      {
+        filePath: '/tmp/photo.png',
+        originalName: 'photo.png',
+        mimeType: 'image/png',
+      },
+      { length: 'short', model: 'image-model' }
+    );
+
+    expect(result.summary).toBe('image summary');
+    expect(result.contentType).toBe('image');
+    expect(mockGenerateAnswer).toHaveBeenCalledTimes(1);
+
+    const call = mockGenerateAnswer.mock.calls[0]?.[0];
+    expect(call.model).toBe('image-model');
+    expect(call.query).toContain('Summarize the image content');
+    expect(call.attachments?.[0]).toEqual(
+      expect.objectContaining({
+        kind: 'image',
+        mediaType: 'image/png',
+        filename: 'photo.png',
+      })
+    );
+  });
+
+  it('summarizes documents using extracted text', async () => {
+    const { SummarizeService } = await import('../src/services/summarize.service.js');
+
+    mockLoadAssetFromPath.mockResolvedValue({
+      kind: 'document',
+      mediaType: 'application/pdf',
+      filename: 'report.pdf',
+      bytes: new Uint8Array([1, 2, 3]),
+      sizeBytes: 3,
+    });
+    mockExtractDocumentText.mockResolvedValue({
+      text: 'This is the document content.',
+      truncated: false,
+    });
+    mockGenerateAnswer.mockResolvedValue({
+      answer: 'doc summary',
+      sourcesUsed: [],
+    });
+
+    const service = new SummarizeService();
+    const result = await service.summarizeFile(
+      {
+        filePath: '/tmp/report.pdf',
+        originalName: 'report.pdf',
+        mimeType: 'application/pdf',
+      },
+      { length: 'medium', model: 'doc-model' }
+    );
+
+    expect(result.summary).toBe('doc summary');
+    expect(result.contentType).toBe('document');
+    expect(result.extractedContent).toContain('This is the document content.');
+    expect(result.metadata?.truncated).toBe(false);
+
+    const call = mockGenerateAnswer.mock.calls[0]?.[0];
+    expect(call.model).toBe('doc-model');
+    expect(call.query).toContain('Summarize the following document');
+    expect(call.query).toContain('Document content:');
   });
 });

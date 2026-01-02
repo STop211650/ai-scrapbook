@@ -7,6 +7,7 @@ import { detectContentType, extractUrlMetadata } from './url-extractor.service.j
 import { ContentItem, ContentType } from '../types/content.js';
 import { CaptureRequest, CaptureResponse } from '../types/api.js';
 import { getSummarizeService } from './summarize.service.js';
+import { env } from '../config/env.js';
 
 export class ContentService {
   private contentRepo: ContentRepository;
@@ -47,7 +48,7 @@ export class ContentService {
     });
 
     // Fire-and-forget: enrich asynchronously
-    this.enrichmentService.enrichAsync(item).catch((err) => {
+    this.enrichmentService.enrichAsync(item, request.model).catch((err) => {
       console.error('Background enrichment failed:', err);
     });
 
@@ -55,7 +56,7 @@ export class ContentService {
     if (contentType === 'url' && sourceUrl) {
       const summarizeService = getSummarizeService();
       summarizeService
-        .summarize(sourceUrl, { includeMetadata: false })
+        .summarize(sourceUrl, { includeMetadata: false, model: request.model })
         .then((result) => this.contentRepo.update(item.id, userId, { summary: result.summary }))
         .catch(async (err) => {
           console.error('Background summarization failed:', err);
@@ -69,6 +70,7 @@ export class ContentService {
               query: fallbackPrompt,
               sources: [],
               maxTokens: 800,
+              model: request.model ?? env.AI_MODEL_URL ?? env.AI_MODEL_DEFAULT,
             });
 
             await this.contentRepo.update(item.id, userId, { summary: fallback.answer });

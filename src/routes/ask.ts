@@ -13,6 +13,7 @@ const askSchema = z.object({
   query: z.string().min(1, 'Query is required').max(1000, 'Query too long'),
   limit: z.number().min(1).max(10).optional(),
   mode: z.enum(['semantic', 'keyword', 'hybrid']).optional(),
+  model: z.string().min(1).optional(),
 });
 
 // POST /ask
