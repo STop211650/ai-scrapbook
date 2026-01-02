@@ -62,6 +62,20 @@ describe('asset.service', () => {
     );
   });
 
+  it('accepts preprocessable office formats', async () => {
+    mockFileType.mockResolvedValueOnce(undefined);
+    const bytes = new Uint8Array([0x00, 0x01, 0x02]);
+    const filePath = await writeTempFile(bytes, 'slides.ppt');
+
+    const asset = await loadAssetFromPath({
+      filePath,
+      providedMimeType: 'application/vnd.ms-powerpoint',
+    });
+
+    expect(asset.kind).toBe('document');
+    expect(asset.mediaType).toBe('application/vnd.ms-powerpoint');
+  });
+
   it('rejects archive types', async () => {
     mockFileType.mockResolvedValueOnce(undefined);
     const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);

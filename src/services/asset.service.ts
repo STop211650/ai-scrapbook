@@ -134,11 +134,25 @@ export const isTextLikeMediaType = (mediaType: string): boolean => {
   );
 };
 
+// Adapted from summarize/src/run/attachments.ts shouldMarkitdownConvertMediaType.
+export const shouldPreprocessMediaType = (mediaType: string): boolean => {
+  const mt = mediaType.toLowerCase();
+  if (mt === 'application/pdf') return true;
+  if (mt === 'application/rtf') return true;
+  if (mt === 'text/html' || mt === 'application/xhtml+xml') return true;
+  if (mt === 'application/msword') return true;
+  if (mt.startsWith('application/vnd.openxmlformats-officedocument.')) return true;
+  if (mt === 'application/vnd.ms-excel') return true;
+  if (mt === 'application/vnd.ms-powerpoint') return true;
+  return false;
+};
+
 export const classifyAssetKind = (mediaType: string): AssetKind | null => {
   if (mediaType.startsWith('image/')) {
     return SUPPORTED_IMAGE_TYPES.has(mediaType) ? 'image' : null;
   }
   if (isTextLikeMediaType(mediaType) && !isHtmlMediaType(mediaType)) return 'document';
+  if (shouldPreprocessMediaType(mediaType)) return 'document';
   if (SUPPORTED_DOCUMENT_TYPES.has(mediaType)) return 'document';
   return null;
 };

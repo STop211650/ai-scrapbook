@@ -10,10 +10,12 @@ import {
   loadAssetFromPath,
   loadAssetFromUrl,
   MAX_UPLOAD_BYTES,
+  shouldPreprocessMediaType,
   type AssetInput,
 } from './asset.service.js';
 import { extractDocumentText } from './document-parser.service.js';
 import { downloadGoogleDocAsDocx, isGoogleDocUrl } from './google-docs.service.js';
+import { convertToMarkdownWithMarkitdown } from './markitdown.service.js';
 import { fetchSummarizeCoreContent } from './summarize-core.client.js';
 import { TwitterService, getTwitterService, isTwitterUrl } from './twitter.service.js';
 import { RedditService, getRedditService, isRedditUrl } from './reddit.service.js';
@@ -104,6 +106,46 @@ const FILE_SUMMARY_DIRECTIVES: Record<
   },
 };
 
+const MARKITDOWN_MAX_CHARS = 20_000;
+const DEFAULT_MARKITDOWN_TIMEOUT_MS = 60_000;
+
+const isHtmlMediaType = (mediaType: string | null): boolean =>
+  mediaType === 'text/html' || mediaType === 'application/xhtml+xml';
+
+const truncateMarkdown = (value: string): { text: string; truncated: boolean } => {
+  const trimmed = value.trim();
+  if (trimmed.length <= MARKITDOWN_MAX_CHARS) {
+    return { text: trimmed, truncated: false };
+  }
+  return { text: trimmed.slice(0, MARKITDOWN_MAX_CHARS), truncated: true };
+};
+
+// Adapted from summarize CLI asset preprocessing (src/run/flows/asset/preprocess.ts).
+const extractWithMarkitdown = async (
+  asset: AssetInput
+): Promise<{ text: string; truncated: boolean }> => {
+  try {
+    const markdown = await convertToMarkdownWithMarkitdown({
+      bytes: asset.bytes,
+      filenameHint: asset.filename,
+      mediaTypeHint: asset.mediaType,
+      uvxCommand: env.UVX_PATH,
+      timeoutMs: env.MARKITDOWN_TIMEOUT_MS ?? DEFAULT_MARKITDOWN_TIMEOUT_MS,
+      env: {},
+    });
+    return truncateMarkdown(markdown);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('ENOENT') || message.includes('uvx')) {
+      const hint = env.UVX_PATH
+        ? `Check UVX_PATH (${env.UVX_PATH}) or ensure uvx is installed.`
+        : 'Install uv/uvx and markitdown, or set UVX_PATH to the uvx binary.';
+      throw new Error(`Missing uvx/markitdown for preprocessing ${asset.mediaType}. ${hint}`);
+    }
+    throw new Error(`Failed to preprocess ${asset.mediaType} with markitdown: ${message}.`);
+  }
+};
+
 const buildDocumentSummaryPrompt = ({
   asset,
   content,
@@ -129,6 +171,26 @@ const buildDocumentSummaryPrompt = ({
     '',
     'Document content:',
     content,
+  ].filter((line) => typeof line === 'string' && line.length > 0);
+
+  return lines.join('\n');
+};
+
+const buildDocumentAttachmentPrompt = ({
+  asset,
+  summaryLength,
+}: {
+  asset: AssetInput;
+  summaryLength: SummaryLength;
+}): string => {
+  const directive = FILE_SUMMARY_DIRECTIVES[summaryLength];
+  const lines = [
+    'Summarize the attached document.',
+    asset.filename ? `Filename: ${asset.filename}` : null,
+    asset.mediaType ? `File type: ${asset.mediaType}` : null,
+    directive.guidance,
+    directive.formatting,
+    'Write in direct, factual language. Use Markdown.',
   ].filter((line) => typeof line === 'string' && line.length > 0);
 
   return lines.join('\n');
@@ -437,49 +499,86 @@ export class SummarizeService {
       };
     }
 
-    const extracted = await extractDocumentText(asset);
-    if (!extracted.text) {
+    const canAttachPdf =
+      asset.mediaType === 'application/pdf' &&
+      asset.sizeBytes <= MAX_UPLOAD_BYTES &&
+      supportsPdfAttachment(aiProvider.name);
+
+    if (canAttachPdf) {
+      const prompt = buildDocumentAttachmentPrompt({ asset, summaryLength: length });
+      const result = await aiProvider.generateAnswer({
+        query: prompt,
+        sources: [],
+        maxTokens,
+        model: options.model ?? resolveModelForKind('document'),
+        attachments: [
+          {
+            kind: 'document' as const,
+            mediaType: asset.mediaType,
+            data: Buffer.from(asset.bytes).toString('base64'),
+            filename: asset.filename,
+          },
+        ],
+      });
+
+      return {
+        summary: result.answer,
+        contentType: 'document',
+        title: asset.filename ?? null,
+        extractedContent: '',
+        metadata: includeMetadata
+          ? {
+              filename: asset.filename,
+              mediaType: asset.mediaType,
+              sizeBytes: asset.sizeBytes,
+              sourceUrl,
+            }
+          : undefined,
+      };
+    }
+
+    let extractedText: { text: string; truncated: boolean };
+    if (isHtmlMediaType(asset.mediaType) && shouldPreprocessMediaType(asset.mediaType)) {
+      extractedText = await extractWithMarkitdown(asset);
+    } else {
+      try {
+        extractedText = await extractDocumentText(asset);
+      } catch (error) {
+        if (!shouldPreprocessMediaType(asset.mediaType)) {
+          throw error;
+        }
+        extractedText = await extractWithMarkitdown(asset);
+      }
+    }
+
+    if (!extractedText.text) {
       throw new Error('No readable text found in the document.');
     }
 
     const prompt = buildDocumentSummaryPrompt({
       asset,
-      content: extracted.text,
-      truncated: extracted.truncated,
+      content: extractedText.text,
+      truncated: extractedText.truncated,
       summaryLength: length,
     });
-    const attachments =
-      asset.mediaType === 'application/pdf' &&
-      asset.sizeBytes <= MAX_UPLOAD_BYTES &&
-      supportsPdfAttachment(aiProvider.name)
-        ? [
-            {
-              kind: 'document' as const,
-              mediaType: asset.mediaType,
-              data: Buffer.from(asset.bytes).toString('base64'),
-              filename: asset.filename,
-            },
-          ]
-        : undefined;
     const result = await aiProvider.generateAnswer({
       query: prompt,
       sources: [],
       maxTokens,
       model: options.model ?? resolveModelForKind('document'),
-      attachments,
     });
 
     return {
       summary: result.answer,
       contentType: 'document',
       title: asset.filename ?? null,
-      extractedContent: extracted.text.substring(0, 1000),
+      extractedContent: extractedText.text.substring(0, 1000),
       metadata: includeMetadata
         ? {
             filename: asset.filename,
             mediaType: asset.mediaType,
             sizeBytes: asset.sizeBytes,
-            truncated: extracted.truncated,
+            truncated: extractedText.truncated,
             sourceUrl,
           }
         : undefined,

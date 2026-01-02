@@ -5,9 +5,12 @@ const mockLoadAssetFromPath = vi.fn();
 const mockLoadAssetFromUrl = vi.fn();
 const mockClassifyUrlAsAsset = vi.fn();
 const mockExtractDocumentText = vi.fn();
+const mockConvertToMarkdown = vi.fn();
+const mockShouldPreprocessMediaType = vi.fn();
 
 vi.mock('../src/services/ai/ai.service.js', () => ({
   getAIProvider: () => ({
+    name: 'openai',
     generateAnswer: mockGenerateAnswer,
   }),
 }));
@@ -17,10 +20,15 @@ vi.mock('../src/services/asset.service.js', () => ({
   loadAssetFromUrl: (...args: unknown[]) => mockLoadAssetFromUrl(...args),
   classifyUrlAsAsset: (...args: unknown[]) => mockClassifyUrlAsAsset(...args),
   MAX_UPLOAD_BYTES: 25 * 1024 * 1024,
+  shouldPreprocessMediaType: (...args: unknown[]) => mockShouldPreprocessMediaType(...args),
 }));
 
 vi.mock('../src/services/document-parser.service.js', () => ({
   extractDocumentText: (...args: unknown[]) => mockExtractDocumentText(...args),
+}));
+
+vi.mock('../src/services/markitdown.service.js', () => ({
+  convertToMarkdownWithMarkitdown: (...args: unknown[]) => mockConvertToMarkdown(...args),
 }));
 
 vi.mock('../src/services/summarize-core.client.js', () => ({
@@ -98,6 +106,9 @@ beforeEach(() => {
   mockLoadAssetFromUrl.mockReset();
   mockClassifyUrlAsAsset.mockReset();
   mockExtractDocumentText.mockReset();
+  mockConvertToMarkdown.mockReset();
+  mockShouldPreprocessMediaType.mockReset();
+  mockShouldPreprocessMediaType.mockReturnValue(false);
 });
 
 describe('SummarizeService', () => {
@@ -263,8 +274,8 @@ describe('SummarizeService.summarizeFile', () => {
 
     mockLoadAssetFromPath.mockResolvedValue({
       kind: 'document',
-      mediaType: 'application/pdf',
-      filename: 'report.pdf',
+      mediaType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      filename: 'report.docx',
       bytes: new Uint8Array([1, 2, 3]),
       sizeBytes: 3,
     });
@@ -280,9 +291,9 @@ describe('SummarizeService.summarizeFile', () => {
     const service = new SummarizeService();
     const result = await service.summarizeFile(
       {
-        filePath: '/tmp/report.pdf',
-        originalName: 'report.pdf',
-        mimeType: 'application/pdf',
+        filePath: '/tmp/report.docx',
+        originalName: 'report.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       },
       { length: 'medium', model: 'doc-model' }
     );
@@ -296,5 +307,76 @@ describe('SummarizeService.summarizeFile', () => {
     expect(call.model).toBe('doc-model');
     expect(call.query).toContain('Summarize the following document');
     expect(call.query).toContain('Document content:');
+  });
+
+  it('prefers PDF attachments over text extraction', async () => {
+    const { SummarizeService } = await import('../src/services/summarize.service.js');
+
+    mockLoadAssetFromPath.mockResolvedValue({
+      kind: 'document',
+      mediaType: 'application/pdf',
+      filename: 'report.pdf',
+      bytes: new Uint8Array([1, 2, 3]),
+      sizeBytes: 3,
+    });
+    mockGenerateAnswer.mockResolvedValue({
+      answer: 'pdf summary',
+      sourcesUsed: [],
+    });
+
+    const service = new SummarizeService();
+    const result = await service.summarizeFile({
+      filePath: '/tmp/report.pdf',
+      originalName: 'report.pdf',
+      mimeType: 'application/pdf',
+    });
+
+    expect(result.summary).toBe('pdf summary');
+    expect(result.extractedContent).toBe('');
+    expect(mockExtractDocumentText).not.toHaveBeenCalled();
+
+    const call = mockGenerateAnswer.mock.calls[0]?.[0];
+    expect(call.query).toContain('Summarize the attached document');
+    expect(call.attachments?.[0]).toEqual(
+      expect.objectContaining({
+        kind: 'document',
+        mediaType: 'application/pdf',
+        filename: 'report.pdf',
+      })
+    );
+  });
+
+  it('falls back to markitdown for preprocessable document types', async () => {
+    const { SummarizeService } = await import('../src/services/summarize.service.js');
+
+    mockLoadAssetFromPath.mockResolvedValue({
+      kind: 'document',
+      mediaType: 'application/vnd.ms-excel',
+      filename: 'sheet.xls',
+      bytes: new Uint8Array([1, 2, 3]),
+      sizeBytes: 3,
+    });
+    mockExtractDocumentText.mockRejectedValue(new Error('Unsupported document type'));
+    mockShouldPreprocessMediaType.mockImplementation(
+      (mediaType: string) => mediaType === 'application/vnd.ms-excel'
+    );
+    mockConvertToMarkdown.mockResolvedValue('# Sheet\n\nTotals: 10');
+    mockGenerateAnswer.mockResolvedValue({ answer: 'doc summary', sourcesUsed: [] });
+
+    const service = new SummarizeService();
+    const result = await service.summarizeFile(
+      {
+        filePath: '/tmp/sheet.xls',
+        originalName: 'sheet.xls',
+        mimeType: 'application/vnd.ms-excel',
+      },
+      { length: 'short' }
+    );
+
+    expect(result.summary).toBe('doc summary');
+    expect(mockConvertToMarkdown).toHaveBeenCalledTimes(1);
+
+    const call = mockGenerateAnswer.mock.calls[0]?.[0];
+    expect(call.query).toContain('# Sheet');
   });
 });
