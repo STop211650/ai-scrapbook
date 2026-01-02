@@ -24,6 +24,12 @@ export async function extractDocumentText(asset: AssetInput): Promise<ExtractedD
     throw new Error('Unsupported asset type for document extraction.');
   }
 
+  if (asset.mediaType === 'text/plain') {
+    const text = new TextDecoder('utf-8').decode(asset.bytes);
+    const normalized = normalizeText(text);
+    return truncateText(normalized, MAX_EXTRACTED_TEXT_CHARS);
+  }
+
   if (asset.mediaType === 'application/pdf') {
     const result = await pdfParse(Buffer.from(asset.bytes));
     const normalized = normalizeText(result.text || '');

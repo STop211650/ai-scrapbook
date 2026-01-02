@@ -13,6 +13,8 @@ import { MAX_UPLOAD_BYTES } from '../services/asset.service.js';
 const router = Router();
 
 const uploadDir = path.join(os.tmpdir(), 'ai-scrapbook-uploads');
+// Synchronous mkdir at module load - blocks event loop briefly during startup
+// but acceptable for one-time initialization before server accepts requests
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({

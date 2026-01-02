@@ -19,7 +19,7 @@ export class AnthropicProvider implements AIProvider {
 
   constructor(apiKey: string, openaiApiKey?: string, defaultModelId?: string) {
     this.provider = createAnthropic({ apiKey });
-    this.defaultModelId = defaultModelId?.trim() || 'claude-haiku-4-5';
+    this.defaultModelId = defaultModelId?.trim() || 'claude-haiku-4-5-latest';
     if (openaiApiKey) {
       const openaiProvider = createOpenAI({ apiKey: openaiApiKey });
       this.embeddingModel = openaiProvider.textEmbeddingModel('text-embedding-3-small');
