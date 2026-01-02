@@ -235,6 +235,17 @@ export class SummarizeService {
       };
     }
 
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      throw new Error('Invalid URL provided. Please ensure the URL is properly formatted.');
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new Error('Only HTTP and HTTPS URLs are supported.');
+    }
+
     const contentType = detectContentType(url);
 
     if (contentType === 'article') {
