@@ -1,38 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Create mock functions that we can control from tests
-const mockOpenAICreate = vi.fn();
-const mockAnthropicCreate = vi.fn();
-const mockEmbeddingsCreate = vi.fn();
+const generateTextMock = vi.hoisted(() => vi.fn());
 
-// Mock OpenAI SDK with a class constructor
-vi.mock('openai', () => {
-  return {
-    default: class MockOpenAI {
-      chat = {
-        completions: {
-          create: mockOpenAICreate,
-        },
-      };
-      embeddings = {
-        create: mockEmbeddingsCreate,
-      };
-    },
-  };
-});
+vi.mock('ai', () => ({
+  generateText: generateTextMock,
+  embed: vi.fn(),
+}));
 
-// Mock Anthropic SDK with a class constructor
-vi.mock('@anthropic-ai/sdk', () => {
-  return {
-    default: class MockAnthropic {
-      messages = {
-        create: mockAnthropicCreate,
-      };
-    },
-  };
-});
+vi.mock('@ai-sdk/openai', () => ({
+  createOpenAI: vi.fn(() => ({
+    chat: vi.fn(() => ({ id: 'openai-model' })),
+    textEmbeddingModel: vi.fn(() => ({ id: 'openai-embed' })),
+  })),
+}));
 
-// Import after mocking so providers use mocked SDKs
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(() => (modelId: string) => ({ id: modelId })),
+}));
+
 import { OpenAIProvider } from '../src/services/ai/providers/openai.provider.js';
 import { AnthropicProvider } from '../src/services/ai/providers/anthropic.provider.js';
 
@@ -46,10 +31,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
     });
 
     it('should return default values when JSON parsing fails', async () => {
-      // Return invalid JSON that will fail to parse
-      mockOpenAICreate.mockResolvedValue({
-        choices: [{ message: { content: 'This is not valid JSON at all!' } }],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: '{title: no quotes}' });
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -69,9 +51,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
     });
 
     it('should handle null content gracefully', async () => {
-      mockOpenAICreate.mockResolvedValue({
-        choices: [{ message: { content: null } }],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: '' });
 
       const result = await provider.enrich('test content', 'url');
 
@@ -85,9 +65,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
 
     it('should handle partial JSON response', async () => {
       // Valid JSON but missing some fields
-      mockOpenAICreate.mockResolvedValue({
-        choices: [{ message: { content: '{"title": "Test Title"}' } }],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: '{"title": "Test Title"}' });
 
       const result = await provider.enrich('test content', 'url');
 
@@ -97,18 +75,12 @@ describe('AI Providers JSON Parsing Error Handling', () => {
     });
 
     it('should handle valid JSON response correctly', async () => {
-      mockOpenAICreate.mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                title: 'Valid Title',
-                description: 'Valid description',
-                tags: ['tag1', 'tag2'],
-              }),
-            },
-          },
-        ],
+      generateTextMock.mockResolvedValueOnce({
+        text: JSON.stringify({
+          title: 'Valid Title',
+          description: 'Valid description',
+          tags: ['tag1', 'tag2'],
+        }),
       });
 
       const result = await provider.enrich('test content', 'url');
@@ -121,18 +93,12 @@ describe('AI Providers JSON Parsing Error Handling', () => {
     });
 
     it('should handle non-array tags gracefully', async () => {
-      mockOpenAICreate.mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                title: 'Title',
-                description: 'Desc',
-                tags: 'not-an-array', // Invalid tags format
-              }),
-            },
-          },
-        ],
+      generateTextMock.mockResolvedValueOnce({
+        text: JSON.stringify({
+          title: 'Title',
+          description: 'Desc',
+          tags: 'not-an-array',
+        }),
       });
 
       const result = await provider.enrich('test content', 'url');
@@ -151,9 +117,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
 
     it('should return default values when JSON parsing fails', async () => {
       // Return text with no valid JSON
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{ type: 'text', text: 'This has no valid JSON anywhere!' }],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: 'This has no valid JSON anywhere!' });
 
       const result = await provider.enrich('test content', 'url');
 
@@ -167,9 +131,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
 
     it('should handle malformed JSON in text', async () => {
       // Contains something that looks like JSON but is invalid
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{ type: 'text', text: 'Here is the result: {title: no quotes}' }],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: 'Here is the result: {title: no quotes}' });
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -190,13 +152,8 @@ describe('AI Providers JSON Parsing Error Handling', () => {
 
     it('should extract JSON from text with surrounding content', async () => {
       // Claude sometimes adds text around JSON
-      mockAnthropicCreate.mockResolvedValue({
-        content: [
-          {
-            type: 'text',
-            text: 'Here is the metadata:\n{"title": "Extracted Title", "description": "Extracted desc", "tags": ["extracted"]}\nHope this helps!',
-          },
-        ],
+      generateTextMock.mockResolvedValueOnce({
+        text: 'Here is the metadata:\n{"title": "Extracted Title", "description": "Extracted desc", "tags": ["extracted"]}\nHope this helps!',
       });
 
       const result = await provider.enrich('test content', 'url');
@@ -209,9 +166,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
     });
 
     it('should handle empty content array', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: '' });
 
       const result = await provider.enrich('test content', 'url');
 
@@ -223,9 +178,7 @@ describe('AI Providers JSON Parsing Error Handling', () => {
     });
 
     it('should handle non-text blocks gracefully', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{ type: 'image', source: 'some-image' }],
-      });
+      generateTextMock.mockResolvedValueOnce({ text: '' });
 
       const result = await provider.enrich('test content', 'url');
 

@@ -1,12 +1,17 @@
+import fs from 'node:fs/promises';
 import {
   buildLinkSummaryPrompt,
   SUMMARY_LENGTH_TO_TOKENS,
   type SummaryLength as CoreSummaryLength,
 } from '@steipete/summarize-core/prompts';
 import { getAIProvider } from './ai/ai.service.js';
+import { loadAssetFromPath, type AssetInput } from './asset.service.js';
+import { extractDocumentText } from './document-parser.service.js';
+import { downloadGoogleDocAsDocx, isGoogleDocUrl } from './google-docs.service.js';
 import { fetchSummarizeCoreContent } from './summarize-core.client.js';
 import { TwitterService, getTwitterService, isTwitterUrl } from './twitter.service.js';
 import { RedditService, getRedditService, isRedditUrl } from './reddit.service.js';
+import { env } from '../config/env.js';
 
 export type ContentType = 'twitter' | 'reddit' | 'article' | 'unknown';
 export type SummaryLength = CoreSummaryLength;
@@ -14,6 +19,7 @@ export type SummaryLength = CoreSummaryLength;
 export interface SummarizeOptions {
   length?: SummaryLength;
   includeMetadata?: boolean;
+  model?: string;
 }
 
 export interface SummarizeResult {
@@ -28,6 +34,115 @@ export interface SummarizeResult {
     engagement?: string;
   };
 }
+
+export interface SummarizeFileResult {
+  summary: string;
+  contentType: 'image' | 'document';
+  title: string | null;
+  extractedContent: string;
+  metadata?: {
+    filename?: string | null;
+    mediaType?: string;
+    sizeBytes?: number;
+    truncated?: boolean;
+    sourceUrl?: string | null;
+  };
+}
+
+type SummarizeFileInput = {
+  filePath: string;
+  originalName?: string | null;
+  mimeType?: string | null;
+  sourceUrl?: string | null;
+};
+
+const FILE_SUMMARY_DIRECTIVES: Record<
+  SummaryLength,
+  { guidance: string; formatting: string }
+> = {
+  short: {
+    guidance:
+      'Write a tight summary in 2–3 sentences that delivers the primary point plus one key supporting detail.',
+    formatting: 'Return a single short paragraph.',
+  },
+  medium: {
+    guidance:
+      'Write two short paragraphs covering the core point in the first paragraph and the most important supporting details in the second.',
+    formatting: 'Each paragraph should contain 2–3 sentences. Separate paragraphs with a blank line.',
+  },
+  long: {
+    guidance:
+      'Write three short paragraphs that summarize the content in order of importance: (1) core point and scope, (2) key supporting facts, (3) other notable details or conclusions.',
+    formatting: 'Each paragraph should contain 2–4 sentences. Separate paragraphs with a blank line.',
+  },
+  xl: {
+    guidance:
+      'Write a detailed summary in 4–6 short paragraphs. Focus on what the content says and include concrete numbers when present.',
+    formatting: 'Use Markdown paragraphs separated by single blank lines.',
+  },
+  xxl: {
+    guidance:
+      'Write a comprehensive summary in 6–10 short paragraphs. Cover background, main points, evidence, and outcomes; avoid speculation.',
+    formatting: 'Use Markdown paragraphs separated by single blank lines.',
+  },
+};
+
+const buildDocumentSummaryPrompt = ({
+  asset,
+  content,
+  truncated,
+  summaryLength,
+}: {
+  asset: AssetInput;
+  content: string;
+  truncated: boolean;
+  summaryLength: SummaryLength;
+}): string => {
+  const directive = FILE_SUMMARY_DIRECTIVES[summaryLength];
+  const lines = [
+    'Summarize the following document.',
+    asset.filename ? `Filename: ${asset.filename}` : null,
+    asset.mediaType ? `File type: ${asset.mediaType}` : null,
+    directive.guidance,
+    directive.formatting,
+    truncated
+      ? 'Note: The document content was truncated due to size limits. Focus on the available text.'
+      : null,
+    'Write in direct, factual language. Use Markdown.',
+    '',
+    'Document content:',
+    content,
+  ].filter((line) => typeof line === 'string' && line.length > 0);
+
+  return lines.join('\n');
+};
+
+const buildImageSummaryPrompt = ({
+  asset,
+  summaryLength,
+}: {
+  asset: AssetInput;
+  summaryLength: SummaryLength;
+}): string => {
+  const directive = FILE_SUMMARY_DIRECTIVES[summaryLength];
+  const lines = [
+    'Summarize the image content.',
+    asset.filename ? `Filename: ${asset.filename}` : null,
+    asset.mediaType ? `Image type: ${asset.mediaType}` : null,
+    'Describe the main subject, any visible text, and key details. If the image includes a document, summarize its content.',
+    directive.guidance,
+    directive.formatting,
+    'Write in direct, factual language. Use Markdown.',
+  ].filter((line) => typeof line === 'string' && line.length > 0);
+
+  return lines.join('\n');
+};
+
+const resolveModelForKind = (kind: 'url' | 'image' | 'document'): string | undefined => {
+  if (kind === 'image') return env.AI_MODEL_IMAGE ?? env.AI_MODEL_DEFAULT;
+  if (kind === 'document') return env.AI_MODEL_DOCUMENT ?? env.AI_MODEL_DEFAULT;
+  return env.AI_MODEL_URL ?? env.AI_MODEL_DEFAULT;
+};
 
 /**
  * Determine the content type represented by a URL.
@@ -87,6 +202,22 @@ export class SummarizeService {
    */
   async summarize(url: string, options: SummarizeOptions = {}): Promise<SummarizeResult> {
     const { length = 'medium', includeMetadata = true } = options;
+
+    if (isGoogleDocUrl(url)) {
+      const docResult = await this.summarizeGoogleDoc(url, { length, includeMetadata });
+      return {
+        summary: docResult.summary,
+        contentType: 'article',
+        title: docResult.title,
+        sourceUrl: url,
+        extractedContent: docResult.extractedContent,
+        metadata: includeMetadata
+          ? {
+              domain: getDomain(url) ?? undefined,
+            }
+          : undefined,
+      };
+    }
 
     const contentType = detectContentType(url);
 
@@ -194,6 +325,7 @@ export class SummarizeService {
       query: prompt,
       sources: [],
       maxTokens,
+      model: options.model ?? resolveModelForKind('url'),
     });
 
     const response: SummarizeResult = {
@@ -209,6 +341,108 @@ export class SummarizeService {
     }
 
     return response;
+  }
+
+  async summarizeFile(
+    input: SummarizeFileInput,
+    options: SummarizeOptions = {}
+  ): Promise<SummarizeFileResult> {
+    const { length = 'medium', includeMetadata = true } = options;
+    const asset = await loadAssetFromPath({
+      filePath: input.filePath,
+      originalName: input.originalName ?? null,
+      providedMimeType: input.mimeType ?? null,
+    });
+
+    const aiProvider = getAIProvider();
+    const maxTokens = SUMMARY_LENGTH_TO_TOKENS[length] ?? 1536;
+
+    if (asset.kind === 'image') {
+      const prompt = buildImageSummaryPrompt({ asset, summaryLength: length });
+      const result = await aiProvider.generateAnswer({
+        query: prompt,
+        sources: [],
+        maxTokens,
+        model: options.model ?? resolveModelForKind('image'),
+        attachments: [
+          {
+            kind: 'image',
+            mediaType: asset.mediaType,
+            data: Buffer.from(asset.bytes).toString('base64'),
+            filename: asset.filename,
+          },
+        ],
+      });
+
+      return {
+        summary: result.answer,
+        contentType: 'image',
+        title: asset.filename ?? null,
+        extractedContent: '',
+        metadata: includeMetadata
+          ? {
+              filename: asset.filename,
+              mediaType: asset.mediaType,
+              sizeBytes: asset.sizeBytes,
+              sourceUrl: input.sourceUrl ?? null,
+            }
+          : undefined,
+      };
+    }
+
+    const extracted = await extractDocumentText(asset);
+    if (!extracted.text) {
+      throw new Error('No readable text found in the document.');
+    }
+
+    const prompt = buildDocumentSummaryPrompt({
+      asset,
+      content: extracted.text,
+      truncated: extracted.truncated,
+      summaryLength: length,
+    });
+    const result = await aiProvider.generateAnswer({
+      query: prompt,
+      sources: [],
+      maxTokens,
+      model: options.model ?? resolveModelForKind('document'),
+    });
+
+    return {
+      summary: result.answer,
+      contentType: 'document',
+      title: asset.filename ?? null,
+      extractedContent: extracted.text.substring(0, 1000),
+      metadata: includeMetadata
+        ? {
+            filename: asset.filename,
+            mediaType: asset.mediaType,
+            sizeBytes: asset.sizeBytes,
+            truncated: extracted.truncated,
+            sourceUrl: input.sourceUrl ?? null,
+          }
+        : undefined,
+    };
+  }
+
+  private async summarizeGoogleDoc(
+    url: string,
+    options: SummarizeOptions
+  ): Promise<SummarizeFileResult> {
+    const { filePath, filename } = await downloadGoogleDocAsDocx({ url });
+    try {
+      return await this.summarizeFile(
+        {
+          filePath,
+          originalName: filename,
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          sourceUrl: url,
+        },
+        options
+      );
+    } finally {
+      await fs.unlink(filePath).catch(() => {});
+    }
   }
 
   /**

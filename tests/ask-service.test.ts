@@ -170,5 +170,58 @@ describe('AskService', () => {
       expect(result).toBeDefined();
       expect(result.answer).toBeDefined();
     });
+
+    it('passes model override to answer generation', async () => {
+      const { generateAnswer } = await import('../src/services/ai/ai.service.js');
+
+      mockSupabase.rpc.mockResolvedValue({
+        data: [{ id: 'item-1', similarity: 0.9 }],
+        error: null,
+      });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === 'content_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'item-1',
+                  user_id: 'user-123',
+                  content_type: 'url',
+                  raw_content: 'Some content',
+                  source_url: 'https://example.com/1',
+                  source_domain: 'example.com',
+                  image_path: null,
+                  title: 'Title 1',
+                  description: 'Desc 1',
+                  tags: ['tag1'],
+                  enrichment_status: 'completed',
+                  search_vector: null,
+                  created_at: '2025-01-01T00:00:00.000Z',
+                  updated_at: '2025-01-01T00:00:00.000Z',
+                },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return {};
+      });
+
+      await askService.ask('user-123', {
+        query: 'What is this about?',
+        limit: 5,
+        mode: 'semantic',
+        model: 'model-override',
+      });
+
+      expect(generateAnswer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'model-override',
+        })
+      );
+    });
   });
 });

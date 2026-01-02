@@ -2,6 +2,7 @@ import { ContentRepository } from '../../repositories/content.repository.js';
 import { EmbeddingRepository } from '../../repositories/embedding.repository.js';
 import { enrichContent, generateEmbedding } from './ai.service.js';
 import { ContentItem } from '../../types/content.js';
+import { env } from '../../config/env.js';
 
 export class EnrichmentService {
   constructor(
@@ -10,7 +11,7 @@ export class EnrichmentService {
   ) {}
 
   // Fire-and-forget enrichment - logs errors but doesn't throw
-  async enrichAsync(item: ContentItem): Promise<void> {
+  async enrichAsync(item: ContentItem, modelOverride?: string): Promise<void> {
     try {
       // Fetch existing tags for consistency
       const existingTags = await this.contentRepo.getAllTags(item.userId);
@@ -18,6 +19,7 @@ export class EnrichmentService {
       // Generate AI metadata with existing tags for consistency
       const enriched = await enrichContent(item.rawContent, item.contentType, {
         existingTags,
+        model: modelOverride ?? env.AI_MODEL_DEFAULT,
       });
 
       // Update the content item with enriched data

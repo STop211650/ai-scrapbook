@@ -29,6 +29,7 @@ export interface RefreshRequest {
 export interface CaptureRequest {
   content: string;
   tags?: string[];
+  model?: string;
 }
 
 export interface CaptureResponse {
@@ -79,6 +80,7 @@ export interface AskRequest {
   query: string;
   limit?: number;
   mode?: 'semantic' | 'keyword' | 'hybrid';
+  model?: string;
 }
 
 export interface AskSource {

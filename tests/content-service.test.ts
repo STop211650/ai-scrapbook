@@ -115,9 +115,12 @@ describe('ContentService.capture', () => {
 
     await flushPromises();
 
-    expect(mockSummarizeService.summarize).toHaveBeenCalledWith('https://example.com', {
-      includeMetadata: false,
-    });
+    expect(mockSummarizeService.summarize).toHaveBeenCalledWith(
+      'https://example.com',
+      expect.objectContaining({
+        includeMetadata: false,
+      })
+    );
     expect(mockContentRepo.update).toHaveBeenCalledWith('item-1', 'user-123', {
       summary: 'Summary from summarize service',
     });
@@ -173,5 +176,41 @@ describe('ContentService.capture', () => {
     expect(mockSummarizeService.summarize).not.toHaveBeenCalled();
     expect(mockContentRepo.update).not.toHaveBeenCalled();
     expect(mockEnrichmentService.enrichAsync).toHaveBeenCalled();
+  });
+
+  it('passes model override to summarization and enrichment', async () => {
+    const { detectContentType, extractUrlMetadata } = await import(
+      '../src/services/url-extractor.service.js'
+    );
+
+    detectContentType.mockReturnValue('url');
+    extractUrlMetadata.mockResolvedValue({
+      title: 'Example title',
+      description: 'Example description',
+      text: 'Example text',
+      domain: 'example.com',
+    });
+
+    const service = new ContentService({} as any);
+
+    await service.capture('user-123', {
+      content: 'https://example.com',
+      tags: ['tag1'],
+      model: 'model-override',
+    });
+
+    await flushPromises();
+
+    expect(mockSummarizeService.summarize).toHaveBeenCalledWith(
+      'https://example.com',
+      expect.objectContaining({
+        includeMetadata: false,
+        model: 'model-override',
+      })
+    );
+    expect(mockEnrichmentService.enrichAsync).toHaveBeenCalledWith(
+      expect.any(Object),
+      'model-override'
+    );
   });
 });
