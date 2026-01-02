@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockGenerateAnswer = vi.fn();
 const mockLoadAssetFromPath = vi.fn();
+const mockLoadAssetFromUrl = vi.fn();
+const mockClassifyUrlAsAsset = vi.fn();
 const mockExtractDocumentText = vi.fn();
 
 vi.mock('../src/services/ai/ai.service.js', () => ({
@@ -12,6 +14,8 @@ vi.mock('../src/services/ai/ai.service.js', () => ({
 
 vi.mock('../src/services/asset.service.js', () => ({
   loadAssetFromPath: (...args: unknown[]) => mockLoadAssetFromPath(...args),
+  loadAssetFromUrl: (...args: unknown[]) => mockLoadAssetFromUrl(...args),
+  classifyUrlAsAsset: (...args: unknown[]) => mockClassifyUrlAsAsset(...args),
 }));
 
 vi.mock('../src/services/document-parser.service.js', () => ({
@@ -83,12 +87,15 @@ vi.mock('../src/services/reddit.service.js', async (importOriginal) => {
 });
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockGenerateAnswer.mockReset();
   mockGenerateAnswer.mockResolvedValue({
     answer: 'summary',
     sourcesUsed: [],
   });
   mockLoadAssetFromPath.mockReset();
+  mockLoadAssetFromUrl.mockReset();
+  mockClassifyUrlAsAsset.mockReset();
   mockExtractDocumentText.mockReset();
 });
 
@@ -148,6 +155,34 @@ describe('SummarizeService', () => {
       const result = await service.summarize('https://reddit.com/r/test/comments/abc/title');
       expect(fetchSummarizeCoreContent).toHaveBeenCalled();
       expect(result.summary).toBe('summary');
+    });
+  });
+
+  describe('asset URL handling', () => {
+    it('summarizes direct asset URLs using file flow', async () => {
+      const { SummarizeService } = await import('../src/services/summarize.service.js');
+      const { fetchSummarizeCoreContent } = await import(
+        '../src/services/summarize-core.client.js'
+      );
+
+      mockClassifyUrlAsAsset.mockResolvedValue({ kind: 'asset' });
+      mockLoadAssetFromUrl.mockResolvedValue({
+        kind: 'document',
+        mediaType: 'application/pdf',
+        filename: 'file.pdf',
+        bytes: new Uint8Array([1, 2, 3]),
+        sizeBytes: 3,
+      });
+      mockExtractDocumentText.mockResolvedValue({ text: 'Doc text', truncated: false });
+      mockGenerateAnswer.mockResolvedValue({ answer: 'asset summary', sourcesUsed: [] });
+
+      const service = new SummarizeService();
+      const result = await service.summarize('https://example.com/file.pdf');
+
+      expect(result.summary).toBe('asset summary');
+      expect(result.contentType).toBe('document');
+      expect(fetchSummarizeCoreContent).not.toHaveBeenCalled();
+      expect(mockLoadAssetFromUrl).toHaveBeenCalled();
     });
   });
 });

@@ -5,7 +5,12 @@ import {
   type SummaryLength as CoreSummaryLength,
 } from '@steipete/summarize-core/prompts';
 import { getAIProvider } from './ai/ai.service.js';
-import { loadAssetFromPath, type AssetInput } from './asset.service.js';
+import {
+  classifyUrlAsAsset,
+  loadAssetFromPath,
+  loadAssetFromUrl,
+  type AssetInput,
+} from './asset.service.js';
 import { extractDocumentText } from './document-parser.service.js';
 import { downloadGoogleDocAsDocx, isGoogleDocUrl } from './google-docs.service.js';
 import { fetchSummarizeCoreContent } from './summarize-core.client.js';
@@ -13,7 +18,7 @@ import { TwitterService, getTwitterService, isTwitterUrl } from './twitter.servi
 import { RedditService, getRedditService, isRedditUrl } from './reddit.service.js';
 import { env } from '../config/env.js';
 
-export type ContentType = 'twitter' | 'reddit' | 'article' | 'unknown';
+export type ContentType = 'twitter' | 'reddit' | 'article' | 'unknown' | 'image' | 'document';
 export type SummaryLength = CoreSummaryLength;
 
 export interface SummarizeOptions {
@@ -32,6 +37,10 @@ export interface SummarizeResult {
     author?: string;
     domain?: string;
     engagement?: string;
+    filename?: string | null;
+    mediaType?: string;
+    sizeBytes?: number;
+    truncated?: boolean;
   };
 }
 
@@ -54,6 +63,13 @@ type SummarizeFileInput = {
   originalName?: string | null;
   mimeType?: string | null;
   sourceUrl?: string | null;
+};
+
+const isHtmlAssetError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { message?: unknown };
+  const message = typeof err.message === 'string' ? err.message.toLowerCase() : '';
+  return message.includes('html');
 };
 
 const FILE_SUMMARY_DIRECTIVES: Record<
@@ -221,6 +237,13 @@ export class SummarizeService {
 
     const contentType = detectContentType(url);
 
+    if (contentType === 'article') {
+      const assetSummary = await this.trySummarizeAssetUrl(url, options);
+      if (assetSummary) {
+        return assetSummary;
+      }
+    }
+
     // Throw clear error for invalid URLs
     if (contentType === 'unknown') {
       throw new Error('Invalid URL provided. Please ensure the URL is properly formatted.');
@@ -347,13 +370,21 @@ export class SummarizeService {
     input: SummarizeFileInput,
     options: SummarizeOptions = {}
   ): Promise<SummarizeFileResult> {
-    const { length = 'medium', includeMetadata = true } = options;
     const asset = await loadAssetFromPath({
       filePath: input.filePath,
       originalName: input.originalName ?? null,
       providedMimeType: input.mimeType ?? null,
     });
 
+    return this.summarizeAsset(asset, options, input.sourceUrl ?? null);
+  }
+
+  private async summarizeAsset(
+    asset: AssetInput,
+    options: SummarizeOptions,
+    sourceUrl: string | null
+  ): Promise<SummarizeFileResult> {
+    const { length = 'medium', includeMetadata = true } = options;
     const aiProvider = getAIProvider();
     const maxTokens = SUMMARY_LENGTH_TO_TOKENS[length] ?? 1536;
 
@@ -384,7 +415,7 @@ export class SummarizeService {
               filename: asset.filename,
               mediaType: asset.mediaType,
               sizeBytes: asset.sizeBytes,
-              sourceUrl: input.sourceUrl ?? null,
+              sourceUrl,
             }
           : undefined,
       };
@@ -419,7 +450,7 @@ export class SummarizeService {
             mediaType: asset.mediaType,
             sizeBytes: asset.sizeBytes,
             truncated: extracted.truncated,
-            sourceUrl: input.sourceUrl ?? null,
+            sourceUrl,
           }
         : undefined,
     };
@@ -442,6 +473,43 @@ export class SummarizeService {
       );
     } finally {
       await fs.unlink(filePath).catch(() => {});
+    }
+  }
+
+  // Adapted from summarize CLI URL asset handling (src/content/asset.ts + src/run/flows/asset/input.ts).
+  private async trySummarizeAssetUrl(
+    url: string,
+    options: SummarizeOptions
+  ): Promise<SummarizeResult | null> {
+    const { includeMetadata = true } = options;
+    const kind = await classifyUrlAsAsset({ url });
+    if (kind.kind !== 'asset') return null;
+
+    try {
+      const asset = await loadAssetFromUrl({ url });
+      const fileResult = await this.summarizeAsset(asset, options, url);
+
+      return {
+        summary: fileResult.summary,
+        contentType: fileResult.contentType,
+        title: fileResult.title,
+        sourceUrl: url,
+        extractedContent: fileResult.extractedContent,
+        metadata: includeMetadata
+          ? {
+              domain: getDomain(url) ?? undefined,
+              filename: fileResult.metadata?.filename ?? null,
+              mediaType: fileResult.metadata?.mediaType,
+              sizeBytes: fileResult.metadata?.sizeBytes,
+              truncated: fileResult.metadata?.truncated,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      if (isHtmlAssetError(error)) {
+        return null;
+      }
+      throw error;
     }
   }
 
