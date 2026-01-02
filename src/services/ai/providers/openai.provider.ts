@@ -191,5 +191,7 @@ function toOpenAiContentPart(attachment: Attachment): ImagePart | FilePart {
     };
   }
 
-  throw new Error(`Unsupported attachment kind: ${attachment.kind}`);
+  const exhaustiveCheck: never = attachment;
+  void exhaustiveCheck;
+  throw new Error('Unsupported attachment kind');
 }
